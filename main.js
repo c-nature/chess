@@ -18,6 +18,7 @@ let hasBlackQueensideRookMoved = false; // a8 rook
 // Global Stockfish worker instance - CRITICAL: Initialize only once
 let stockfishWorker = null;
 let evaluations = []; // Moved to global scope to persist between messages
+let lines = [];
 
 const boardSquares = document.getElementsByClassName('square');
 const pieces = document.getElementsByClassName('piece');
@@ -737,8 +738,8 @@ function finalizeMove() {
 
     const currentFEN = generateFEN(board);
     console.log("Generated FEN:", currentFEN);
-    getEvaluation(currentFEN, function(evaluations) {
-        displayEvaluation(evaluations);
+    getEvaluation(currentFEN, function(lines, evaluations, scoreString) {
+        displayEvaluation(lines, evaluations, scoreString);
     });
 }
 
@@ -812,6 +813,11 @@ function getEvaluation(fen, callback) {
         stockfishWorker.onmessage = function (event) {
             let message = event.data;
             console.log("Stockfish Raw Message:", message);
+            lines[multipv - 1] = pvString.join ("");
+            if (evaluations.length === 3 && lines.length === 3) {
+                callback(lines, evaluations, scoreString);
+
+            }
 
             if (message.startsWith("info depth 10")) {
                 evaluations.length = 0; // Clear evaluations for each new depth 10 message
@@ -859,7 +865,7 @@ function getEvaluation(fen, callback) {
  * Displays the evaluation bar and number based on Stockfish's evaluation.
  * @param {Array<number|string>} evaluations Array of evaluations from Stockfish.
  */
-function displayEvaluation(evaluations) {
+function displayEvaluation(lines, evaluation, scoreString) {
     let blackBar = document.querySelector(".blackBar");
     let evalNum = document.querySelector(".evalNum");
 
@@ -873,6 +879,35 @@ function displayEvaluation(evaluations) {
         } else if (typeof evaluation === 'string' && evaluation.startsWith('#')) {
             blackBar.style.height = evaluation.includes('-') ? '100%' : '0%';
             evalNum.innerHTML = evaluation;
+            for (let i = 0; i <lines.length; i++) {
+                let eval = document.getElementById("eval" + (i + 1));
+                let line = document.getElementById("line" + (i + 1));
+                eval.innerHTML = evaluations[i];
+                line.innerHTML = lines[i];
+                document.getElementById("eval").innerHTML = evaluations[0];
+                if (Math.abs(evaluations[0] <0.5))
+                    document.getElementById("evalText").innerHTML = "Equal";
+                if (evaluations[0] < 1 && evaluations[0] >= 0.5)
+                    document.getElementById("evalText").innerHTML = "White is slightly better";
+                if (evaluations[0] > -1 && evaluations[0] <= -0.5)
+                    document.getElementById("evalText").innerHTML = "Black is slightly better";
+                if (evaluations[0] < 2 && evaluations[0] >= 1)
+                    document.getElementById("evalText").innerHTML = "White is significantly better";
+                if (evaluations[0] > -2 && evaluations[0] <= -1)
+                    document.getElementById("evalText").innerHTML = "Black is significantly better";
+                if (evaluations[0] > 2)
+                    document.getElementById("evalText").innerHTML = "White is winning!";
+                if (evaluations[0] < -2)
+                    document.getElementById("evalText").innerHTML = "Black is winning!";
+                if (evaluations[0].toString().includes("#")) {
+                    const mateInMoves = evaluation[0].slice(1);
+                    const isWhiteWinning = (parseInt(scoreString) > 0 && isWhiteTurn)  || (parseInt
+                        (scoreString) < 0 && !isWhiteTurn);
+                        const winningColor = isWhiteWinning ? "White" : "Black";
+                        document.getElementById("evalText").innerHTML = `${winningColor} can mate
+                        in ${mateInMoves} moves`;
+                }
         }
     }
+}
 }
