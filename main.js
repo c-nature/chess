@@ -27,14 +27,12 @@ const piecesImages = document.getElementsByTagName("img");
 const promotionOverlay = document.getElementById('promotion-overlay');
 const promotionChoices = document.querySelector('.promotion-choices');
 
-
 // Ensure DOM is fully loaded before setting up event listeners
 document.addEventListener('DOMContentLoaded', (event) => {
     setupBoardSquares();
     initializeBoardState(); // Initialize the internal board state
     setupPieces(); // Setup drag listeners for initial pieces
     renderBoard(); // Render the board based on initial state
-    // Call finalizeMove to get the initial board evaluation and set up the first turn.
     finalizeMove();
 });
 
@@ -46,7 +44,7 @@ function setupBoardSquares() {
     for (let i = 0; i < boardSquares.length; i++) {
         boardSquares[i].addEventListener('dragover', allowDrop);
         boardSquares[i].addEventListener('drop', drop);
-        boardSquares[i].addEventListener('click', selectSquare); // `selectSquare` function is now defined
+        boardSquares[i].addEventListener('click', selectSquare);
 
         // Calculate row and column for ID
         let row = 8 - Math.floor(i / 8); // Ranks 8 to 1
@@ -172,14 +170,11 @@ function renderBoard() {
     setupPieces();
 }
 
-
 /**
  * Placeholder for selecting a square by click.
  * @param {Event} event The click event.
  */
 function selectSquare(event) {
-    // This function would typically handle selecting a piece or moving a selected piece
-    // For now, it's a placeholder to prevent errors.
     console.log("Square clicked:", event.currentTarget.id);
 }
 
@@ -196,18 +191,18 @@ function allowDrop(event) {
  * @param {Event} ev The dragstart event.
  */
 function drag(ev) {
-    const piece = ev.target.closest('.piece'); // Ensure we get the .piece element
-    if (!piece) return; // If not a piece, do nothing
+    const piece = ev.target.closest('.piece');
+    if (!piece) return;
 
     const pieceColor = piece.getAttribute("color");
     if ((isWhiteTurn && pieceColor === "white") || (!isWhiteTurn && pieceColor === "black")) {
-        selectedPiece = piece; // Store the selected piece
+        selectedPiece = piece;
         ev.dataTransfer.setData("text", piece.id);
-        const startingSquareId = piece.parentNode.id; // Get ID from parent square
-        legalSquares = getLegalMovesForPiece(startingSquareId, piece); // Get filtered legal moves
+        const startingSquareId = piece.parentNode.id;
+        legalSquares = getLegalMovesForPiece(startingSquareId, piece);
         console.log("Legal moves for " + piece.classList[1] + " on " + startingSquareId + ":", legalSquares);
     } else {
-        ev.preventDefault(); // Prevent dragging if it's not the player's turn
+        ev.preventDefault();
     }
 }
 
@@ -222,42 +217,33 @@ function drop(ev) {
     const destinationSquare = ev.currentTarget;
     let destinationSquareId = destinationSquare.id;
 
-    // Get original position of the dragged piece
     const originalSquareId = pieceElement.parentNode.id;
     const [fromRow, fromCol] = squareIdToCoords(originalSquareId);
     const [toRow, toCol] = squareIdToCoords(destinationSquareId);
 
-    // Store current enPassantTargetSquare before potential reset
     const prevEnPassantTargetSquare = enPassantTargetSquare;
-    // Reset en passant target for the new turn, it's only valid for one turn
     enPassantTargetSquare = null;
 
-    // Check if the destination is a legal move
     if (legalSquares.includes(destinationSquareId)) {
         const pieceType = board[fromRow][fromCol].type;
         const pieceColor = board[fromRow][fromCol].color;
 
-        // Handle Castling Move
         if (pieceType === 'king' && Math.abs(fromCol - toCol) === 2) {
-            // This is a castling move
             let rookFromCol, rookToCol;
-            if (toCol === 6) { // Kingside castle (King moves from e to g)
-                rookFromCol = 7; // h-file rook
-                rookToCol = 5;   // f-file
-            } else if (toCol === 2) { // Queenside castle (King moves from e to c)
-                rookFromCol = 0; // a-file rook
-                rookToCol = 3;   // d-file
+            if (toCol === 6) {
+                rookFromCol = 7;
+                rookToCol = 5;
+            } else if (toCol === 2) {
+                rookFromCol = 0;
+                rookToCol = 3;
             }
 
-            // Move king
             board[toRow][toCol] = board[fromRow][fromCol];
             board[fromRow][fromCol] = null;
 
-            // Move rook
             board[toRow][rookToCol] = board[toRow][rookFromCol];
             board[toRow][rookFromCol] = null;
 
-            // Update castling flags
             if (pieceColor === 'white') {
                 hasWhiteKingMoved = true;
                 if (rookFromCol === 7) hasWhiteKingsideRookMoved = true;
@@ -267,22 +253,17 @@ function drop(ev) {
                 if (rookFromCol === 7) hasBlackKingsideRookMoved = true;
                 else if (rookFromCol === 0) hasBlackQueensideRookMoved = true;
             }
-
         } else if (pieceType === 'pawn' && destinationSquareId === prevEnPassantTargetSquare) {
-            // This is an en passant capture
-            const capturedPawnRow = fromRow; // Captured pawn is on the same row as the attacking pawn's start
-            const capturedPawnCol = toCol; // Captured pawn is on the same column as the attacking pawn's destination
-            board[capturedPawnRow][capturedPawnCol] = null; // Remove the captured pawn
+            const capturedPawnRow = fromRow;
+            const capturedPawnCol = toCol;
+            board[capturedPawnRow][capturedPawnCol] = null;
 
-            board[toRow][toCol] = board[fromRow][fromCol]; // Move attacking pawn
-            board[fromRow][fromCol] = null; // Clear original square
-
+            board[toRow][toCol] = board[fromRow][fromCol];
+            board[fromRow][fromCol] = null;
         } else {
-            // Normal move
-            board[toRow][toCol] = board[fromRow][fromCol]; // Move piece to new square
-            board[fromRow][fromCol] = null; // Clear old square
+            board[toRow][toCol] = board[fromRow][fromCol];
+            board[fromRow][fromCol] = null;
 
-            // Update castling flags for normal king/rook moves
             if (pieceType === 'king') {
                 if (pieceColor === 'white') hasWhiteKingMoved = true;
                 else hasBlackKingMoved = true;
@@ -297,29 +278,22 @@ function drop(ev) {
             }
         }
 
-        // Set enPassantTargetSquare if a pawn moved two squares
         if (pieceType === 'pawn' && Math.abs(fromRow - toRow) === 2) {
-            // The en passant target square is the square *behind* the pawn that just moved two squares
             enPassantTargetSquare = coordsToSquareId(fromRow + (toRow - fromRow) / 2, toCol);
         }
 
-        // Check for pawn promotion
         if (pieceType === 'pawn' && (toRow === 0 || toRow === 7)) {
-            pawnPromotionTargetSquareId = destinationSquareId; // Store for promotion
-            renderBoard(); // Render the board with the pawn moved before showing promotion UI
+            pawnPromotionTargetSquareId = destinationSquareId;
+            renderBoard();
             showPromotionUI(pieceColor);
-            // IMPORTANT: DO NOT call finalizeMove() or toggle turn here.
-            // It will be called by selectPromotionPiece after the user chooses a piece.
             return;
         }
 
-        renderBoard(); // Update the DOM to reflect the new board state for non-promotion moves
-        // Call the new finalizeMove function to handle turn toggle, legal moves clear, game status, and evaluation
+        renderBoard();
         finalizeMove();
-
     } else {
         console.log("Illegal move!");
-        legalSquares.length = 0; // Always clear legal squares after a drop attempt
+        legalSquares.length = 0;
     }
 }
 
@@ -349,7 +323,6 @@ function isSquareOccupied(rowIndex, colIndex, boardState = board) {
  * @returns {Array<Array<Object|null>>} A new board state after the simulated move.
  */
 function simulateMove(fromRow, fromCol, toRow, toCol, currentBoard, isEnPassantCapture = false) {
-    // Create a deep copy of the current board state
     const simulatedBoard = currentBoard.map(row => row.slice());
 
     const piece = simulatedBoard[fromRow][fromCol];
@@ -357,8 +330,6 @@ function simulateMove(fromRow, fromCol, toRow, toCol, currentBoard, isEnPassantC
     simulatedBoard[fromRow][fromCol] = null;
 
     if (isEnPassantCapture) {
-        // For en passant, the captured pawn is on the same row as the attacking pawn's start,
-        // but on the column of the attacking pawn's destination.
         const capturedPawnRow = fromRow;
         const capturedPawnCol = toCol;
         simulatedBoard[capturedPawnRow][capturedPawnCol] = null;
@@ -382,7 +353,7 @@ function findKing(kingColor, boardState) {
             }
         }
     }
-    return null; // Should not happen in a valid game
+    return null;
 }
 
 /**
@@ -393,27 +364,23 @@ function findKing(kingColor, boardState) {
  */
 function isKingInCheck(kingColor, boardState) {
     const kingCoords = findKing(kingColor, boardState);
-    if (!kingCoords) return false; // King not found (game over or invalid state)
+    if (!kingCoords) return false;
 
     const [kingRow, kingCol] = kingCoords;
     const opponentColor = kingColor === 'white' ? 'black' : 'white';
 
-    // Iterate through all squares to find opponent's pieces
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             const piece = boardState[r][c];
             if (piece && piece.color === opponentColor) {
-                // Get pseudo-legal moves for this opponent's piece
-                // We pass true for `forCheckValidation` to get all possible attacks
                 const pseudoLegalMoves = getPseudoLegalMoves(r, c, piece.type, piece.color, boardState, true);
-                // Check if any of these moves target the king's square
                 if (pseudoLegalMoves.some(move => move[0] === kingRow && move[1] === kingCol)) {
-                    return true; // King is in check
+                    return true;
                 }
             }
         }
     }
-    return false; // King is not in check
+    return false;
 }
 
 /**
@@ -431,39 +398,35 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
     let moves = [];
 
     const addMove = (r, c) => {
-        // Ensure move is within bounds
         if (r >= 0 && r <= 7 && c >= 0 && c <= 7) {
             moves.push([r, c]);
         }
     };
 
-    // Helper for sliding pieces (Rook, Bishop, Queen)
     const checkAndAddSlidingMove = (r, c) => {
-        if (r < 0 || r > 7 || c < 0 || c > 7) return 'stop'; // Out of bounds
+        if (r < 0 || r > 7 || c < 0 || c > 7) return 'stop';
 
         const targetContent = isSquareOccupied(r, c, boardState);
         if (targetContent === 'blank') {
             addMove(r, c);
-            return 'continue'; // Keep checking in this direction
+            return 'continue';
         } else if (targetContent !== pieceColor) {
-            addMove(r, c); // Capture opponent's piece
-            return 'stop'; // Stop after capture
+            addMove(r, c);
+            return 'stop';
         } else {
-            return 'stop'; // Blocked by own piece
+            return 'stop';
         }
     };
 
     switch (pieceType) {
         case 'pawn':
-            const direction = (pieceColor === "white") ? -1 : 1; // Row index changes: -1 for white (up), 1 for black (down)
-            const startRankRow = (pieceColor === "white") ? 6 : 1; // Row index for starting rank
-            const enPassantRank = (pieceColor === "white") ? 3 : 4; // Rank where en passant can occur for attacking pawn
+            const direction = (pieceColor === "white") ? -1 : 1;
+            const startRankRow = (pieceColor === "white") ? 6 : 1;
+            const enPassantRank = (pieceColor === "white") ? 3 : 4;
 
-            // Forward one square
             let nextRow = startRow + direction;
             if (isSquareOccupied(nextRow, startCol, boardState) === "blank") {
                 addMove(nextRow, startCol);
-                // Forward two squares (only from starting rank)
                 if (startRow === startRankRow) {
                     let twoStepsRow = startRow + (2 * direction);
                     if (isSquareOccupied(twoStepsRow, startCol, boardState) === "blank") {
@@ -472,27 +435,23 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                 }
             }
 
-            // Diagonal captures
             const captureCols = [startCol - 1, startCol + 1];
             for (const c of captureCols) {
                 const targetContent = isSquareOccupied(nextRow, c, boardState);
                 if (targetContent !== "blank" && targetContent !== pieceColor) {
-                    addMove(nextRow, c); // Capture opponent's piece
+                    addMove(nextRow, c);
                 }
             }
 
-            // En Passant
             if (startRow === enPassantRank && enPassantTargetSquare !== null) {
                 for (const c of captureCols) {
                     const targetSquareId = coordsToSquareId(nextRow, c);
                     if (targetSquareId === enPassantTargetSquare) {
-                        // Check if the square to the side contains an opponent's pawn that just moved two squares
-                        const pawnBesideRow = startRow; // The row of the captured pawn
-                        const pawnBesideCol = c; // The column of the captured pawn
+                        const pawnBesideRow = startRow;
+                        const pawnBesideCol = c;
                         const pieceBeside = boardState[pawnBesideRow][pawnBesideCol];
-
                         if (pieceBeside && pieceBeside.type === 'pawn' && pieceBeside.color !== pieceColor) {
-                            addMove(nextRow, c); // Add the en passant target square as a legal move
+                            addMove(nextRow, c);
                         }
                     }
                 }
@@ -515,7 +474,7 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
             break;
 
         case 'rook':
-            const rookDirections = [[-1, 0], [1, 0], [0, -1], [0, 1]]; // Up, Down, Left, Right
+            const rookDirections = [[-1, 0], [1, 0], [0, -1], [0, 1]];
             rookDirections.forEach(([dr, dc]) => {
                 for (let i = 1; i < 8; i++) {
                     const newRow = startRow + dr * i;
@@ -527,7 +486,7 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
             break;
 
         case 'bishop':
-            const bishopDirections = [[-1, -1], [-1, 1], [1, -1], [1, 1]]; // Diagonals
+            const bishopDirections = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
             bishopDirections.forEach(([dr, dc]) => {
                 for (let i = 1; i < 8; i++) {
                     const newRow = startRow + dr * i;
@@ -540,8 +499,8 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
 
         case 'queen':
             const queenDirections = [
-                [-1, 0], [1, 0], [0, -1], [0, 1], // Rook moves
-                [-1, -1], [-1, 1], [1, -1], [1, 1]  // Bishop moves
+                [-1, 0], [1, 0], [0, -1], [0, 1],
+                [-1, -1], [-1, 1], [1, -1], [1, 1]
             ];
             queenDirections.forEach(([dr, dc]) => {
                 for (let i = 1; i < 8; i++) {
@@ -568,43 +527,33 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                 }
             });
 
-            // Castling logic for King
-            // King's current position must be its starting square (e1 for white, e8 for black)
-            // White King: (7, 4)
-            // Black King: (0, 4)
             const kingRow = (pieceColor === 'white') ? 7 : 0;
             const kingMovedFlag = (pieceColor === 'white') ? hasWhiteKingMoved : hasBlackKingMoved;
 
-            if (!kingMovedFlag && startRow === kingRow && startCol === 4) { // King is on its starting square and hasn't moved
-                // Kingside Castling (Short Castle) - Rook at h1 (7,7) or h8 (0,7)
+            if (!kingMovedFlag && startRow === kingRow && startCol === 4) {
                 const kingsideRookMovedFlag = (pieceColor === 'white') ? hasWhiteKingsideRookMoved : hasBlackKingsideRookMoved;
                 const kingsideRookCol = 7;
                 if (!kingsideRookMovedFlag && boardState[kingRow][5] === null && boardState[kingRow][6] === null &&
                     boardState[kingRow][kingsideRookCol] && boardState[kingRow][kingsideRookCol].type === 'rook' && boardState[kingRow][kingsideRookCol].color === pieceColor) {
-                    // Check if squares king passes through or lands on are attacked
                     const pathClearAndSafe =
-                        !isKingInCheck(pieceColor, boardState) && // King not in check
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState)) && // f1/f8 not attacked
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState)); // g1/g8 not attacked
-
+                        !isKingInCheck(pieceColor, boardState) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState)) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState));
                     if (pathClearAndSafe) {
-                        addMove(kingRow, 6); // Add g1/g8 as a legal castling move target
+                        addMove(kingRow, 6);
                     }
                 }
 
-                // Queenside Castling (Long Castle) - Rook at a1 (7,0) or a8 (0,0)
                 const queensideRookMovedFlag = (pieceColor === 'white') ? hasWhiteQueensideRookMoved : hasBlackQueensideRookMoved;
                 const queensideRookCol = 0;
                 if (!queensideRookMovedFlag && boardState[kingRow][1] === null && boardState[kingRow][2] === null && boardState[kingRow][3] === null &&
                     boardState[kingRow][queensideRookCol] && boardState[kingRow][queensideRookCol].type === 'rook' && boardState[kingRow][queensideRookCol].color === pieceColor) {
-                    // Check if squares king passes through or lands on are attacked
                     const pathClearAndSafe =
-                        !isKingInCheck(pieceColor, boardState) && // King not in check
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState)) && // d1/d8 not attacked
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState)); // c1/c8 not attacked
-
+                        !isKingInCheck(pieceColor, boardState) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState)) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState));
                     if (pathClearAndSafe) {
-                        addMove(kingRow, 2); // Add c1/c8 as a legal castling move target
+                        addMove(kingRow, 2);
                     }
                 }
             }
@@ -624,18 +573,14 @@ function getLegalMovesForPiece(startSquareId, pieceElement) {
     const pieceType = pieceElement.classList[1];
     const pieceColor = pieceElement.getAttribute('color');
 
-    // Get all pseudo-legal moves for the piece
     const pseudoLegalMoves = getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, board);
 
     let filteredLegalMoves = [];
     for (const [toRow, toCol] of pseudoLegalMoves) {
-        // Simulate the move on a temporary board
         let simulatedBoard;
         let isEnPassantCapture = false;
 
-        // Determine if this pseudo-legal move is an en passant capture
         if (pieceType === 'pawn' && coordsToSquareId(toRow, toCol) === enPassantTargetSquare) {
-            // Check if the target square is indeed the en passant target
             const pawnBesideRow = startRow;
             const pawnBesideCol = toCol;
             const pieceBeside = board[pawnBesideRow][pawnBesideCol];
@@ -646,7 +591,6 @@ function getLegalMovesForPiece(startSquareId, pieceElement) {
 
         simulatedBoard = simulateMove(startRow, startCol, toRow, toCol, board, isEnPassantCapture);
 
-        // Check if the king is in check after this simulated move
         if (!isKingInCheck(pieceColor, simulatedBoard)) {
             filteredLegalMoves.push(coordsToSquareId(toRow, toCol));
         }
@@ -665,25 +609,20 @@ function checkGameStatus() {
     const kingInCheck = isKingInCheck(currentPlayerColor, board);
     let hasLegalMoves = false;
 
-    // Check if current player has any legal moves
-    // Iterate through all pieces of the current player
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             const piece = board[r][c];
             if (piece && piece.color === currentPlayerColor) {
                 const pieceSquareId = coordsToSquareId(r, c);
-                // We need a dummy piece element to pass to getLegalMovesForPiece
-                // as it expects a DOM element to extract classList and attributes.
-                // In a more complex app, this might be refactored to just pass pieceType and pieceColor directly.
                 const dummyPieceElement = {
-                    classList: [null, piece.type], // Mimic classList[1] for piece type
+                    classList: [null, piece.type],
                     getAttribute: (attr) => attr === 'color' ? piece.color : null
                 };
 
                 const legalMovesForThisPiece = getLegalMovesForPiece(pieceSquareId, dummyPieceElement);
                 if (legalMovesForThisPiece.length > 0) {
                     hasLegalMoves = true;
-                    break; // Found at least one legal move
+                    break;
                 }
             }
         }
@@ -697,7 +636,6 @@ function checkGameStatus() {
     } else if (kingInCheck) {
         showMessage(`${currentPlayerColor.toUpperCase()} is in check!`);
     } else {
-        // Game continues, maybe clear previous messages
         clearMessage();
     }
 }
@@ -746,13 +684,13 @@ function clearMessage() {
  * @param {string} pawnColor The color of the pawn being promoted.
  */
 function showPromotionUI(pawnColor) {
-    promotionChoices.innerHTML = ''; // Clear previous choices
+    promotionChoices.innerHTML = '';
     const promotionPieces = ['queen', 'rook', 'bishop', 'knight'];
 
     promotionPieces.forEach(pieceType => {
         const choiceDiv = document.createElement('div');
         choiceDiv.classList.add('promotion-choice');
-        choiceDiv.dataset.pieceType = pieceType; // Store the piece type
+        choiceDiv.dataset.pieceType = pieceType;
         choiceDiv.addEventListener('click', () => selectPromotionPiece(pieceType, pawnColor));
 
         const pieceImg = document.createElement('img');
@@ -763,7 +701,7 @@ function showPromotionUI(pawnColor) {
         promotionChoices.appendChild(choiceDiv);
     });
 
-    promotionOverlay.classList.add('active'); // Show the overlay
+    promotionOverlay.classList.add('active');
 }
 
 /**
@@ -772,20 +710,18 @@ function showPromotionUI(pawnColor) {
  * @param {string} pawnColor The color of the pawn being promoted.
  */
 function selectPromotionPiece(selectedType, pawnColor) {
-    promotionOverlay.classList.remove('active'); // Hide the overlay
+    promotionOverlay.classList.remove('active');
 
     const [row, col] = squareIdToCoords(pawnPromotionTargetSquareId);
 
-    // Update the board state with the new piece type
     board[row][col] = {
         type: selectedType,
         color: pawnColor
     };
 
-    renderBoard(); // Update the DOM to reflect the promoted piece
+    renderBoard();
 
-    pawnPromotionTargetSquareId = null; // Reset
-    // Call finalizeMove after promotion to update turn, game status, and evaluation
+    pawnPromotionTargetSquareId = null;
     finalizeMove();
 }
 
@@ -794,15 +730,14 @@ function selectPromotionPiece(selectedType, pawnColor) {
  * This function is called after any successful move (normal or promotion).
  */
 function finalizeMove() {
-    isWhiteTurn = !isWhiteTurn; // Toggle turn for the next player
-    legalSquares.length = 0; // Clear legal moves for the previous turn
+    isWhiteTurn = !isWhiteTurn;
+    legalSquares.length = 0;
 
-    checkGameStatus(); // Check for check, checkmate, stalemate after the move
+    checkGameStatus();
 
-    // Get the current FEN string and update the evaluation
-    const currentFEN = generateFEN(board); // Make sure generateFEN(board) is correctly implemented
-    console.log("Generated FEN:", currentFEN); // ADDED: Log the FEN
-    getEvaluation(currentFEN, function(evaluations){
+    const currentFEN = generateFEN(board);
+    console.log("Generated FEN:", currentFEN);
+    getEvaluation(currentFEN, function(evaluations) {
         displayEvaluation(evaluations);
     });
 }
@@ -845,10 +780,8 @@ function generateFEN(boardState) {
         }
     }
 
-    // Active color
     fen += ' ' + (isWhiteTurn ? 'w' : 'b');
 
-    // Castling availability
     let castling = '';
     if (!hasWhiteKingMoved) {
         if (!hasWhiteKingsideRookMoved) castling += 'K';
@@ -860,82 +793,86 @@ function generateFEN(boardState) {
     }
     fen += ' ' + (castling === '' ? '-' : castling);
 
-    // En passant target square
     fen += ' ' + (enPassantTargetSquare || '-');
 
-    // Halfmove clock (number of halfmoves since the last capture or pawn advance) - simplified for now
-    // Fullmove number (starts at 1 and is incremented after Black's move) - simplified for now
-    fen += ' 0 1'; // Default values, you might want to implement actual tracking for these
+    fen += ' 0 1';
 
     return fen;
 }
 
-
+/**
+ * Gets evaluation from Stockfish worker.
+ * @param {string} fen The FEN string of the current position.
+ * @param {function} callback Function to call with the evaluation results.
+ */
 function getEvaluation(fen, callback) {
-    // Initialize worker only once
     if (!stockfishWorker) {
-        console.log("Creating new worker with path:", "./lib/stockfish-nnue-16.js"); // ADDED: Log the worker path
-        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js"); 
+        console.log("Creating new worker with path:", "./lib/stockfish-nnue-16.js");
+        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
         stockfishWorker.onmessage = function (event) {
             let message = event.data;
-            console.log("Stockfish Raw Message:", message); // ADDED: Log all messages from worker
+            console.log("Stockfish Raw Message:", message);
 
             if (message.startsWith("info depth 10")) {
-                evaluations.length = 0; // CORRECTED: Moved inside to handle incoming messages
-                let multipvIndex = message.indexOf("multiv");
-                if(multipvIndex !== -1) {
+                evaluations.length = 0; // Clear evaluations for each new depth 10 message
+                let multipvIndex = message.indexOf("multipv");
+                if (multipvIndex !== -1) {
                     let multipvString = message.slice(multipvIndex).split(" ")[1];
                     let multipv = parseInt(multipvString);
                     let scoreIndex = message.indexOf("score cp");
-                    if (scoreIndex != -1) {
+                    if (scoreIndex !== -1) {
                         let scoreString = message.slice(scoreIndex).split(" ")[2];
-                        let evaluation = parseInt(scoreString)/100;
-                        // Adjust evaluation based on whose turn it is for display purposes
-                        evaluation = isWhiteTurn ? evaluation : evaluation * -1;
-                        evaluations [multipv - 1] = evaluation;
+                        let evaluation = parseInt(scoreString) / 100;
+                        evaluation = isWhiteTurn ? evaluation : -evaluation;
+                        evaluations[multipv - 1] = evaluation;
                     } else {
                         scoreIndex = message.indexOf("score mate");
-                        scoreString = message.slice(scoreIndex).split(" ")[2];
+                        let scoreString = message.slice(scoreIndex).split(" ")[2];
                         let evaluation = parseInt(scoreString);
-                        evaluation = Math.abs(evaluation); // Mate score
-                        evaluations[multipv - 1] = "#" + evaluation;
+                        evaluations[multipv - 1] = "#" + Math.abs(evaluation);
                     }
-                    let pvIndex = message.indexOf(" pv ");
-                    if(pvIndex !== -1) {
-                        // The original code only called callback if evaluations.length === 1.
-                        // This might need refinement if you want to display all multipv evaluations.
-                        // For now, it will display only the first (best) evaluation.
-                        if(evaluations.length === 1) {
-                             callback(evaluations);
-                        }
+                    // Call callback with current evaluations whenever we have at least one
+                    if (evaluations.length > 0) {
+                        callback(evaluations);
                     }
                 }
             } else if (message.startsWith("info string")) {
-                console.log("Stockfish Info String:", message); // Log other info messages
+                console.log("Stockfish Info String:", message);
             } else if (message.startsWith("bestmove")) {
-                console.log("Stockfish Best Move:", message); // Log bestmove messages
+                console.log("Stockfish Best Move:", message);
             }
         };
-        stockfishWorker.onerror = function(error) { // ADDED: Error handling for worker
+        stockfishWorker.onerror = function(error) {
             console.error("Stockfish Worker Error:", error);
         };
+        stockfishWorker.postMessage("uci");
+        stockfishWorker.postMessage("isready");
     }
 
-    // Send commands to the worker
-    stockfishWorker.postMessage("uci");
-    stockfishWorker.postMessage("isready");
-    stockfishWorker.postMessage("ucinewgame"); // Reset engine for new game/position
-    stockfishWorker.postMessage("setoption name multipv value 3"); // Set multipv if desired
-    stockfishWorker.postMessage("position fen " + fen); // IMPORTANT: Note the space after "fen"
+    stockfishWorker.postMessage("ucinewgame");
+    stockfishWorker.postMessage("setoption name multipv value 3");
+    stockfishWorker.postMessage("position fen " + fen);
     stockfishWorker.postMessage("go depth 10");
 }
 
-function displayEvaluation (evaluations) {
+/**
+ * Displays the evaluation bar and number based on Stockfish's evaluation.
+ * @param {Array<number|string>} evaluations Array of evaluations from Stockfish.
+ */
+function displayEvaluation(evaluations) {
     let blackBar = document.querySelector(".blackBar");
-    let blackBarHeight = 50 - (evaluations[0]/15 *100);
-    blackBarHeight = blackBarHeight>100 ? (blackBarHeight = 100) : blackBarHeight;
-    blackBarHeight = blackBarHeight<0 ? (blackBarHeight = 0) : blackBarHeight;
-    blackBar.style.height = blackBarHeight + "%";
     let evalNum = document.querySelector(".evalNum");
-    evalNum.innerHTML = evaluations[0];
+
+    if (evaluations.length > 0) {
+        let evaluation = evaluations[0]; // Use the first evaluation (best move)
+        if (typeof evaluation === 'number') {
+            let blackBarHeight = 50 - (evaluation / 15 * 100);
+            blackBarHeight = Math.max(0, Math.min(100, blackBarHeight));
+            blackBar.style.height = blackBarHeight + "%";
+            evalNum.innerHTML = evaluation.toFixed(2); // Display with 2 decimal places
+        } else if (typeof evaluation === 'string' && evaluation.startsWith('#')) {
+            blackBar.style.height = evaluation.includes('-') ? '100%' : '0%';
+            evalNum.innerHTML = evaluation;
+        }
+    }
 }
