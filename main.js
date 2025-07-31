@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     initializeBoardState(); // Initialize the internal board state
     setupPieces(); // Setup drag listeners for initial pieces
     renderBoard(); // Render the board based on initial state
+    initializeEvaluationElements(); // Initialize evaluation display elements cache
     finalizeMove();
 });
 
@@ -866,72 +867,160 @@ function getEvaluation(fen, callback) {
     stockfishWorker.postMessage("go depth 10");
 }
 
+// Cache DOM elements for better performance
+let evaluationElements = null;
+
+function initializeEvaluationElements() {
+    evaluationElements = {
+        blackBar: document.querySelector(".blackBar"),
+        evalNum: document.querySelector(".evalNum"),
+        evalMain: document.getElementById("eval"),
+        evalText: document.getElementById("evalText"),
+        evalLines: [],
+        lineElements: []
+    };
+    
+    // Cache evaluation line elements
+    for (let i = 1; i <= 3; i++) {
+        evaluationElements.evalLines[i-1] = document.getElementById(`eval${i}`);
+        evaluationElements.lineElements[i-1] = document.getElementById(`line${i}`);
+    }
+}
+
 /**
  * Displays the evaluation bar and number based on Stockfish's evaluation.
+ * Improved version with error handling, performance optimization, and better code organization.
  * @param {Array<string>} lines Array of PV lines from Stockfish.
  * @param {Array<number|string>} evaluations Array of evaluations from Stockfish.
  * @param {string} scoreString The raw score string from Stockfish.
  */
 function displayEvaluation(lines, evaluations, scoreString) {
-    let blackBar = document.querySelector(".blackBar");
-    let evalNum = document.querySelector(".evalNum");
-
-    if (!blackBar || !evalNum) {
-        console.error("Evaluation bar elements not found in DOM");
-        return;
+    // Initialize elements cache if not done yet
+    if (!evaluationElements) {
+        initializeEvaluationElements();
+    }
+    
+    // Validate inputs
+    if (!Array.isArray(evaluations) || evaluations.length === 0) {
+        console.warn("Invalid evaluations data provided to displayEvaluation");
+        return false;
+    }
+    
+    if (!Array.isArray(lines)) {
+        lines = [];
+    }
+    
+    // Check if required DOM elements exist
+    if (!evaluationElements.blackBar || !evaluationElements.evalNum) {
+        console.error("Required evaluation bar elements not found in DOM");
+        return false;
     }
 
-    if (evaluations && evaluations.length > 0) {
-        let evaluation = evaluations[0] || 0; // Default to 0 if undefined
-        if (typeof evaluation === 'number') {
-            let blackBarHeight = 50 - (evaluation / 15 * 100);
-            blackBarHeight = Math.max(0, Math.min(100, blackBarHeight));
-            blackBar.style.height = blackBarHeight + "%";
-            evalNum.innerHTML = evaluation.toFixed(2); // Display with 2 decimal places
-        } else if (typeof evaluation === 'string' && evaluation.startsWith('#')) {
-            // Use a default scoreString if undefined
-            scoreString = scoreString || "0";
-            blackBar.style.height = (parseInt(scoreString) < 0 && !isWhiteTurn) || (parseInt(scoreString) > 0 && isWhiteTurn) ? '100%' : '0%';
-            evalNum.innerHTML = evaluation;
+    try {
+        // Get primary evaluation and sanitize it
+        let evaluation = evaluations[0];
+        if (evaluation === null || evaluation === undefined) {
+            evaluation = 0;
         }
+        
+        // Sanitize scoreString
+        scoreString = (typeof scoreString === 'string') ? scoreString.trim() : '0';
+        if (!scoreString) scoreString = '0';
 
-        // Update top lines table
-        for (let i = 0; i < Math.min(lines?.length || 0, 3); i++) {
-            let evalElement = document.getElementById("eval" + (i + 1));
-            let lineElement = document.getElementById("line" + (i + 1));
-            if (evalElement && lineElement) {
-                evalElement.innerHTML = evaluations[i] !== undefined ? evaluations[i].toString() : '';
-                lineElement.innerHTML = lines[i] !== undefined ? lines[i].trim() : '';
+        // Update evaluation bar and number
+        updateEvaluationBar(evaluation, scoreString);
+        
+        // Update evaluation lines
+        updateEvaluationLines(lines, evaluations);
+        
+        // Update main evaluation text
+        updateEvaluationText(evaluation, scoreString);
+        
+        return true;
+        
+    } catch (error) {
+        console.error("Error in displayEvaluation:", error);
+        return false;
+    }
+}
+
+function updateEvaluationBar(evaluation, scoreString) {
+    const { blackBar, evalNum } = evaluationElements;
+    
+    if (typeof evaluation === 'number') {
+        // Clamp evaluation to reasonable range
+        const clampedEval = Math.max(-15, Math.min(15, evaluation));
+        const blackBarHeight = 50 - (clampedEval / 15 * 100);
+        const finalHeight = Math.max(0, Math.min(100, blackBarHeight));
+        
+        blackBar.style.height = finalHeight + "%";
+        evalNum.textContent = clampedEval.toFixed(2);
+        
+    } else if (typeof evaluation === 'string' && evaluation.startsWith('#')) {
+        // Handle mate evaluations
+        const scoreValue = parseInt(scoreString) || 0;
+        const isWhiteWinning = (scoreValue > 0 && isWhiteTurn) || (scoreValue < 0 && !isWhiteTurn);
+        
+        blackBar.style.height = isWhiteWinning ? '0%' : '100%';
+        evalNum.textContent = evaluation;
+    }
+}
+
+function updateEvaluationLines(lines, evaluations) {
+    const maxLines = Math.min(lines.length, evaluations.length, 3);
+    
+    for (let i = 0; i < 3; i++) {
+        const evalElement = evaluationElements.evalLines[i];
+        const lineElement = evaluationElements.lineElements[i];
+        
+        if (evalElement && lineElement) {
+            if (i < maxLines && evaluations[i] !== undefined) {
+                evalElement.textContent = evaluations[i].toString();
+                lineElement.textContent = (lines[i] || '').trim();
+            } else {
+                evalElement.textContent = '';
+                lineElement.textContent = '';
             }
         }
+    }
+}
 
-        // Update main evaluation display
-        let evalMain = document.getElementById("eval");
-        let evalText = document.getElementById("evalText");
-        if (evalMain && evalText) {
-            evalMain.innerHTML = evaluations[0] !== undefined ? evaluations[0].toString() : '';
-            if (Math.abs(evaluations[0] || 0) < 0.5) {
-                evalText.innerHTML = "Equal";
-            } else if (evaluations[0] >= 0.5 && evaluations[0] < 1) {
-                evalText.innerHTML = "White is slightly better";
-            } else if (evaluations[0] <= -0.5 && evaluations[0] > -1) {
-                evalText.innerHTML = "Black is slightly better";
-            } else if (evaluations[0] >= 1 && evaluations[0] < 2) {
-                evalText.innerHTML = "White is significantly better";
-            } else if (evaluations[0] <= -1 && evaluations[0] > -2) {
-                evalText.innerHTML = "Black is significantly better";
-            } else if (evaluations[0] >= 2) {
-                evalText.innerHTML = "White is winning!";
-            } else if (evaluations[0] <= -2) {
-                evalText.innerHTML = "Black is winning!";
-            } else if (evaluation?.toString().includes("#")) {
-                const mateInMoves = Math.abs(parseInt(evaluation.slice(1)) || 0);
-                // Use a default scoreString if undefined
-                scoreString = scoreString || "0";
-                const isWhiteWinning = (parseInt(scoreString) > 0 && isWhiteTurn) || (parseInt(scoreString) < 0 && !isWhiteTurn);
-                const winningColor = isWhiteWinning ? "White" : "Black";
-                evalText.innerHTML = `${winningColor} can mate in ${mateInMoves} moves`;
-            }
+function updateEvaluationText(evaluation, scoreString) {
+    const { evalMain, evalText } = evaluationElements;
+    
+    if (!evalMain || !evalText) return;
+    
+    evalMain.textContent = evaluation !== undefined ? evaluation.toString() : '';
+    
+    if (typeof evaluation === 'string' && evaluation.includes('#')) {
+        // Handle mate evaluations
+        const mateInMoves = Math.abs(parseInt(evaluation.slice(1)) || 0);
+        const scoreValue = parseInt(scoreString) || 0;
+        const isWhiteWinning = (scoreValue > 0 && isWhiteTurn) || (scoreValue < 0 && !isWhiteTurn);
+        const winningColor = isWhiteWinning ? "White" : "Black";
+        
+        evalText.textContent = `${winningColor} can mate in ${mateInMoves} moves`;
+        
+    } else if (typeof evaluation === 'number') {
+        // Handle numeric evaluations
+        const absEval = Math.abs(evaluation);
+        
+        if (absEval < 0.5) {
+            evalText.textContent = "Equal";
+        } else if (evaluation >= 0.5 && evaluation < 1) {
+            evalText.textContent = "White is slightly better";
+        } else if (evaluation <= -0.5 && evaluation > -1) {
+            evalText.textContent = "Black is slightly better";
+        } else if (evaluation >= 1 && evaluation < 2) {
+            evalText.textContent = "White is significantly better";
+        } else if (evaluation <= -1 && evaluation > -2) {
+            evalText.textContent = "Black is significantly better";
+        } else if (evaluation >= 2) {
+            evalText.textContent = "White is winning!";
+        } else if (evaluation <= -2) {
+            evalText.textContent = "Black is winning!";
         }
+    } else {
+        evalText.textContent = "Unknown";
     }
 }
