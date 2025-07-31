@@ -18,7 +18,7 @@ let hasBlackQueensideRookMoved = false; // a8 rook
 // Global Stockfish worker instance - CRITICAL: Initialize only once
 let stockfishWorker = null;
 let evaluations = []; // Moved to global scope to persist between messages
-let lines = [];
+let lines = []; // Array to store PV lines for each multipv
 
 const boardSquares = document.getElementsByClassName('square');
 const pieces = document.getElementsByClassName('piece');
@@ -813,19 +813,17 @@ function getEvaluation(fen, callback) {
         stockfishWorker.onmessage = function (event) {
             let message = event.data;
             console.log("Stockfish Raw Message:", message);
-            lines[multipv - 1] = pvString.join ("");
-            if (evaluations.length === 3 && lines.length === 3) {
-                callback(lines, evaluations, scoreString);
-
-            }
 
             if (message.startsWith("info depth 10")) {
                 evaluations.length = 0; // Clear evaluations for each new depth 10 message
+                lines.length = 0; // Clear lines for each new depth 10 message
                 let multipvIndex = message.indexOf("multipv");
                 if (multipvIndex !== -1) {
                     let multipvString = message.slice(multipvIndex).split(" ")[1];
                     let multipv = parseInt(multipvString);
                     let scoreIndex = message.indexOf("score cp");
+                    let pvIndex = message.indexOf("pv");
+
                     if (scoreIndex !== -1) {
                         let scoreString = message.slice(scoreIndex).split(" ")[2];
                         let evaluation = parseInt(scoreString) / 100;
@@ -837,9 +835,16 @@ function getEvaluation(fen, callback) {
                         let evaluation = parseInt(scoreString);
                         evaluations[multipv - 1] = "#" + Math.abs(evaluation);
                     }
-                    // Call callback with current evaluations whenever we have at least one
-                    if (evaluations.length > 0) {
-                        callback(evaluations);
+
+                    if (pvIndex !== -1) {
+                        let pvString = message.slice(pvIndex + 3).trim().split(" ")[0]; // Get first move of PV
+                        if (!lines[multipv - 1]) lines[multipv - 1] = "";
+                        lines[multipv - 1] += pvString + " ";
+                    }
+
+                    // Call callback when we have all 3 evaluations
+                    if (evaluations.length === 3) {
+                        callback(lines, evaluations, scoreString);
                     }
                 }
             } else if (message.startsWith("info string")) {
@@ -863,9 +868,11 @@ function getEvaluation(fen, callback) {
 
 /**
  * Displays the evaluation bar and number based on Stockfish's evaluation.
+ * @param {Array<string>} lines Array of PV lines from Stockfish.
  * @param {Array<number|string>} evaluations Array of evaluations from Stockfish.
+ * @param {string} scoreString The raw score string from Stockfish.
  */
-function displayEvaluation(lines, evaluation, scoreString) {
+function displayEvaluation(lines, evaluations, scoreString) {
     let blackBar = document.querySelector(".blackBar");
     let evalNum = document.querySelector(".evalNum");
 
@@ -877,37 +884,45 @@ function displayEvaluation(lines, evaluation, scoreString) {
             blackBar.style.height = blackBarHeight + "%";
             evalNum.innerHTML = evaluation.toFixed(2); // Display with 2 decimal places
         } else if (typeof evaluation === 'string' && evaluation.startsWith('#')) {
-            blackBar.style.height = evaluation.includes('-') ? '100%' : '0%';
+            blackBar.style.height = (parseInt(scoreString) < 0 && !isWhiteTurn) || (parseInt(scoreString) > 0 && isWhiteTurn) ? '100%' : '0%';
             evalNum.innerHTML = evaluation;
-            for (let i = 0; i <lines.length; i++) {
-                let eval = document.getElementById("eval" + (i + 1));
-                let line = document.getElementById("line" + (i + 1));
-                eval.innerHTML = evaluations[i];
-                line.innerHTML = lines[i];
-                document.getElementById("eval").innerHTML = evaluations[0];
-                if (Math.abs(evaluations[0] <0.5))
-                    document.getElementById("evalText").innerHTML = "Equal";
-                if (evaluations[0] < 1 && evaluations[0] >= 0.5)
-                    document.getElementById("evalText").innerHTML = "White is slightly better";
-                if (evaluations[0] > -1 && evaluations[0] <= -0.5)
-                    document.getElementById("evalText").innerHTML = "Black is slightly better";
-                if (evaluations[0] < 2 && evaluations[0] >= 1)
-                    document.getElementById("evalText").innerHTML = "White is significantly better";
-                if (evaluations[0] > -2 && evaluations[0] <= -1)
-                    document.getElementById("evalText").innerHTML = "Black is significantly better";
-                if (evaluations[0] > 2)
-                    document.getElementById("evalText").innerHTML = "White is winning!";
-                if (evaluations[0] < -2)
-                    document.getElementById("evalText").innerHTML = "Black is winning!";
-                if (evaluations[0].toString().includes("#")) {
-                    const mateInMoves = evaluation[0].slice(1);
-                    const isWhiteWinning = (parseInt(scoreString) > 0 && isWhiteTurn)  || (parseInt
-                        (scoreString) < 0 && !isWhiteTurn);
-                        const winningColor = isWhiteWinning ? "White" : "Black";
-                        document.getElementById("evalText").innerHTML = `${winningColor} can mate
-                        in ${mateInMoves} moves`;
-                }
+        }
+
+        // Update top lines table
+        for (let i = 0; i < Math.min(lines.length, 3); i++) {
+            let evalElement = document.getElementById("eval" + (i + 1));
+            let lineElement = document.getElementById("line" + (i + 1));
+            if (evalElement && lineElement) {
+                evalElement.innerHTML = evaluations[i] !== undefined ? evaluations[i].toString() : '';
+                lineElement.innerHTML = lines[i] !== undefined ? lines[i].trim() : '';
+            }
+        }
+
+        // Update main evaluation display
+        let evalMain = document.getElementById("eval");
+        let evalText = document.getElementById("evalText");
+        if (evalMain && evalText) {
+            evalMain.innerHTML = evaluations[0] !== undefined ? evaluations[0].toString() : '';
+            if (Math.abs(evaluations[0]) < 0.5) {
+                evalText.innerHTML = "Equal";
+            } else if (evaluations[0] >= 0.5 && evaluations[0] < 1) {
+                evalText.innerHTML = "White is slightly better";
+            } else if (evaluations[0] <= -0.5 && evaluations[0] > -1) {
+                evalText.innerHTML = "Black is slightly better";
+            } else if (evaluations[0] >= 1 && evaluations[0] < 2) {
+                evalText.innerHTML = "White is significantly better";
+            } else if (evaluations[0] <= -1 && evaluations[0] > -2) {
+                evalText.innerHTML = "Black is significantly better";
+            } else if (evaluations[0] >= 2) {
+                evalText.innerHTML = "White is winning!";
+            } else if (evaluations[0] <= -2) {
+                evalText.innerHTML = "Black is winning!";
+            } else if (evaluation.toString().includes("#")) {
+                const mateInMoves = Math.abs(parseInt(evaluation.slice(1)));
+                const isWhiteWinning = (parseInt(scoreString) > 0 && isWhiteTurn) || (parseInt(scoreString) < 0 && !isWhiteTurn);
+                const winningColor = isWhiteWinning ? "White" : "Black";
+                evalText.innerHTML = `${winningColor} can mate in ${mateInMoves} moves`;
+            }
         }
     }
-}
 }
