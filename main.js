@@ -17,6 +17,7 @@ let hasBlackQueensideRookMoved = false; // a8 rook
 
 // Global Stockfish worker instance - CRITICAL: Initialize only once
 let stockfishWorker = null;
+let evaluations = []; // Moved to global scope to persist between messages
 
 const boardSquares = document.getElementsByClassName('square');
 const pieces = document.getElementsByClassName('piece');
@@ -880,7 +881,7 @@ function getEvaluation(fen, callback) {
             console.log("Stockfish Raw Message:", message); // ADDED: Log all messages from worker
 
             if (message.startsWith("info depth 10")) {
-                let evaluations = []; // Reset evaluations for each message
+                evaluations.length = 0; // CORRECTED: Moved inside to handle incoming messages
                 let multipvIndex = message.indexOf("multiv");
                 if(multipvIndex !== -1) {
                     let multipvString = message.slice(multipvIndex).split(" ")[1];
