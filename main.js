@@ -889,6 +889,8 @@ function displayEvaluation(lines, evaluations, scoreString) {
             blackBar.style.height = blackBarHeight + "%";
             evalNum.innerHTML = evaluation.toFixed(2); // Display with 2 decimal places
         } else if (typeof evaluation === 'string' && evaluation.startsWith('#')) {
+            // Use a default scoreString if undefined
+            scoreString = scoreString || "0";
             blackBar.style.height = (parseInt(scoreString) < 0 && !isWhiteTurn) || (parseInt(scoreString) > 0 && isWhiteTurn) ? '100%' : '0%';
             evalNum.innerHTML = evaluation;
         }
@@ -924,6 +926,8 @@ function displayEvaluation(lines, evaluations, scoreString) {
                 evalText.innerHTML = "Black is winning!";
             } else if (evaluation?.toString().includes("#")) {
                 const mateInMoves = Math.abs(parseInt(evaluation.slice(1)) || 0);
+                // Use a default scoreString if undefined
+                scoreString = scoreString || "0";
                 const isWhiteWinning = (parseInt(scoreString) > 0 && isWhiteTurn) || (parseInt(scoreString) < 0 && !isWhiteTurn);
                 const winningColor = isWhiteWinning ? "White" : "Black";
                 evalText.innerHTML = `${winningColor} can mate in ${mateInMoves} moves`;
