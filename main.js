@@ -873,8 +873,8 @@ function generateFEN(boardState) {
 function getEvaluation(fen, callback) {
     // Initialize worker only once
     if (!stockfishWorker) {
-        // REVERTED: Using the path your tutorial suggested for debugging.
-        stockfishWorker = new Worker("./node_modules/stockfish/src/stockfish-nnue-16.js"); 
+        console.log("Creating new worker with path:", "./lib/stockfish-nnue-16.js"); // ADDED: Log the worker path
+        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js"); 
         stockfishWorker.onmessage = function (event) {
             let message = event.data;
             console.log("Stockfish Raw Message:", message); // ADDED: Log all messages from worker
