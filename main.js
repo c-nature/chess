@@ -7,12 +7,6 @@ let selectedSquare = null; // Track the currently selected square
 let selectedPiece = null; // Track the currently selected piece
 let pawnPromotionTargetSquareId = null; // Stores the square where pawn promotion happens
 
-// REMOVED: Initial global call to getEvaluation. This will now be handled in DOMContentLoaded.
-// let startingPosition = generateFEN(boardSqaureArray);
-// getEvaluation(startingPosition, function(evaluations){
-//     displayEvaluation(evaluations);
-// })
-
 // Castling flags
 let hasWhiteKingMoved = false;
 let hasBlackKingMoved = false;
