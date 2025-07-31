@@ -19,6 +19,7 @@ let hasBlackQueensideRookMoved = false; // a8 rook
 let stockfishWorker = null;
 let evaluations = []; // Moved to global scope to persist between messages
 let lines = []; // Array to store PV lines for each multipv
+let scoreStrings = []; // Array to store scoreString per multipv
 
 const boardSquares = document.getElementsByClassName('square');
 const pieces = document.getElementsByClassName('piece');
@@ -739,8 +740,8 @@ function finalizeMove() {
 
     const currentFEN = generateFEN(board);
     console.log("Generated FEN:", currentFEN);
-    getEvaluation(currentFEN, function(lines, evaluations, scoreString) {
-        displayEvaluation(lines, evaluations, scoreString);
+    getEvaluation(currentFEN, function(lines, evaluations, scoreStrings) {
+        displayEvaluation(lines, evaluations, scoreStrings[0]);
     });
 }
 
@@ -816,36 +817,42 @@ function getEvaluation(fen, callback) {
             console.log("Stockfish Raw Message:", message);
 
             if (message.startsWith("info depth 10")) {
-                evaluations.length = 0; // Clear evaluations for each new depth 10 message
-                lines.length = 0; // Clear lines for each new depth 10 message
                 let multipvIndex = message.indexOf("multipv");
                 if (multipvIndex !== -1) {
                     let multipvString = message.slice(multipvIndex).split(" ")[1];
                     let multipv = parseInt(multipvString) || 1; // Default to 1 if parsing fails
+
+                    // Ensure arrays are initialized with 3 slots
+                    while (evaluations.length < 3) evaluations.push(null);
+                    while (lines.length < 3) lines.push("");
+                    while (scoreStrings.length < 3) scoreStrings.push(null);
+
                     let scoreIndex = message.indexOf("score cp");
                     let pvIndex = message.indexOf("pv");
 
                     if (scoreIndex !== -1) {
-                        let scoreString = message.slice(scoreIndex).split(" ")[2] || "0";
-                        let evaluation = parseInt(scoreString) / 100 || 0;
+                        scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
+                        let evaluation = parseInt(scoreStrings[multipv - 1]) / 100 || 0;
                         evaluation = isWhiteTurn ? evaluation : -evaluation;
                         evaluations[multipv - 1] = evaluation;
                     } else {
                         scoreIndex = message.indexOf("score mate");
-                        let scoreString = message.slice(scoreIndex).split(" ")[2] || "0";
-                        let evaluation = parseInt(scoreString) || 0;
+                        scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
+                        let evaluation = parseInt(scoreStrings[multipv - 1]) || 0;
                         evaluations[multipv - 1] = "#" + Math.abs(evaluation);
                     }
 
                     if (pvIndex !== -1) {
                         let pvString = message.slice(pvIndex + 3).trim().split(" ")[0] || "";
-                        if (!lines[multipv - 1]) lines[multipv - 1] = "";
                         lines[multipv - 1] += pvString + " ";
                     }
 
-                    // Call callback when we have all 3 evaluations
-                    if (evaluations.length === 3) {
-                        callback(lines, evaluations, scoreString);
+                    // Call callback only when all 3 multipv evaluations are received
+                    if (evaluations.every(eval => eval !== null)) {
+                        callback(lines, evaluations, scoreStrings);
+                        evaluations = [];
+                        lines = [];
+                        scoreStrings = [];
                     }
                 }
             } else if (message.startsWith("info string")) {
