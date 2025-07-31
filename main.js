@@ -820,24 +820,24 @@ function getEvaluation(fen, callback) {
                 let multipvIndex = message.indexOf("multipv");
                 if (multipvIndex !== -1) {
                     let multipvString = message.slice(multipvIndex).split(" ")[1];
-                    let multipv = parseInt(multipvString);
+                    let multipv = parseInt(multipvString) || 1; // Default to 1 if parsing fails
                     let scoreIndex = message.indexOf("score cp");
                     let pvIndex = message.indexOf("pv");
 
                     if (scoreIndex !== -1) {
-                        let scoreString = message.slice(scoreIndex).split(" ")[2];
-                        let evaluation = parseInt(scoreString) / 100;
+                        let scoreString = message.slice(scoreIndex).split(" ")[2] || "0";
+                        let evaluation = parseInt(scoreString) / 100 || 0;
                         evaluation = isWhiteTurn ? evaluation : -evaluation;
                         evaluations[multipv - 1] = evaluation;
                     } else {
                         scoreIndex = message.indexOf("score mate");
-                        let scoreString = message.slice(scoreIndex).split(" ")[2];
-                        let evaluation = parseInt(scoreString);
+                        let scoreString = message.slice(scoreIndex).split(" ")[2] || "0";
+                        let evaluation = parseInt(scoreString) || 0;
                         evaluations[multipv - 1] = "#" + Math.abs(evaluation);
                     }
 
                     if (pvIndex !== -1) {
-                        let pvString = message.slice(pvIndex + 3).trim().split(" ")[0]; // Get first move of PV
+                        let pvString = message.slice(pvIndex + 3).trim().split(" ")[0] || "";
                         if (!lines[multipv - 1]) lines[multipv - 1] = "";
                         lines[multipv - 1] += pvString + " ";
                     }
@@ -876,8 +876,13 @@ function displayEvaluation(lines, evaluations, scoreString) {
     let blackBar = document.querySelector(".blackBar");
     let evalNum = document.querySelector(".evalNum");
 
-    if (evaluations.length > 0) {
-        let evaluation = evaluations[0]; // Use the first evaluation (best move)
+    if (!blackBar || !evalNum) {
+        console.error("Evaluation bar elements not found in DOM");
+        return;
+    }
+
+    if (evaluations && evaluations.length > 0) {
+        let evaluation = evaluations[0] || 0; // Default to 0 if undefined
         if (typeof evaluation === 'number') {
             let blackBarHeight = 50 - (evaluation / 15 * 100);
             blackBarHeight = Math.max(0, Math.min(100, blackBarHeight));
@@ -889,7 +894,7 @@ function displayEvaluation(lines, evaluations, scoreString) {
         }
 
         // Update top lines table
-        for (let i = 0; i < Math.min(lines.length, 3); i++) {
+        for (let i = 0; i < Math.min(lines?.length || 0, 3); i++) {
             let evalElement = document.getElementById("eval" + (i + 1));
             let lineElement = document.getElementById("line" + (i + 1));
             if (evalElement && lineElement) {
@@ -903,7 +908,7 @@ function displayEvaluation(lines, evaluations, scoreString) {
         let evalText = document.getElementById("evalText");
         if (evalMain && evalText) {
             evalMain.innerHTML = evaluations[0] !== undefined ? evaluations[0].toString() : '';
-            if (Math.abs(evaluations[0]) < 0.5) {
+            if (Math.abs(evaluations[0] || 0) < 0.5) {
                 evalText.innerHTML = "Equal";
             } else if (evaluations[0] >= 0.5 && evaluations[0] < 1) {
                 evalText.innerHTML = "White is slightly better";
@@ -917,8 +922,8 @@ function displayEvaluation(lines, evaluations, scoreString) {
                 evalText.innerHTML = "White is winning!";
             } else if (evaluations[0] <= -2) {
                 evalText.innerHTML = "Black is winning!";
-            } else if (evaluation.toString().includes("#")) {
-                const mateInMoves = Math.abs(parseInt(evaluation.slice(1)));
+            } else if (evaluation?.toString().includes("#")) {
+                const mateInMoves = Math.abs(parseInt(evaluation.slice(1)) || 0);
                 const isWhiteWinning = (parseInt(scoreString) > 0 && isWhiteTurn) || (parseInt(scoreString) < 0 && !isWhiteTurn);
                 const winningColor = isWhiteWinning ? "White" : "Black";
                 evalText.innerHTML = `${winningColor} can mate in ${mateInMoves} moves`;
