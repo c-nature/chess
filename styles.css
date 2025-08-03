@@ -1,94 +1,149 @@
+/* General Layout and Styling */
 body {
-    /* Removed flex properties from body to prevent layout conflicts */
-    /* Changed display back to block for better initial behavior */
-    display: block;
-    min-height: 100vh; /* Use min-height instead of height for better responsiveness */
+    display: flex;
+    min-height: 100vh;
     margin: 0;
-    background-color: #f0f0f0; /* Added a background for clarity */
-    font-family: sans-serif; /* Added a default font */
-    /* Centering the main content container */
-    display: flex; /* Re-added flex to body to center its single child (.container) */
-    align-items: center; /* Center vertically */
-    justify-content: center; /* Center horizontally */
+    background-color: #f0f0f0;
+    font-family: sans-serif;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
 }
 
+/* New top container to hold buttons and board-eval layout */
+.top-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 20px;
+}
+
+.container {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    width: auto;
+}
+
+.buttonContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    margin: 20px;
+    gap: 10px;
+}
+
+.buttonContainer button, .buttonContainer select {
+    width: 120px;
+    height: 40px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    background-color: rgb(87, 64, 64);
+    color: white;
+    font-weight: bold;
+}
+
+.buttonContainer select {
+    background-color: whitesmoke;
+    color: black;
+}
+
+.level-select {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+/* Chess Board and Pieces */
 .chessBoard {
-    /* Fixed size for desktop, will be responsive via media query */
     width: 600px;
     height: 600px;
-    border: 2px solid #333; /* A border helps visualize the board */
-    display: grid; /* Use CSS Grid for the chessboard layout */
-    grid-template-columns: repeat(8, 1fr); /* 8 equal columns */
-    grid-template-rows: repeat(8, 1fr);    /* 8 equal rows */
-    box-sizing: content-box; /* Ensure padding/border doesn't affect overall size */
+    border: 2px solid #333;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    box-sizing: content-box;
+    transition: transform 0.5s ease-in-out;
+}
+
+.chessBoard.flipped {
+    transform: rotate(180deg);
 }
 
 .square {
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative; /* For absolute positioning of coordinates/pieces */
-    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    position: relative;
+    box-sizing: border-box;
     min-width: 0;
     min-height: 0;
 }
 
 .white {
-    background-color: #f0d9b5; /* Light square color */
+    background-color: #f0d9b5;
 }
 
 .black {
-    background-color: #b58863; /* Dark square color */
+    background-color: #b58863;
 }
 
 .piece {
-    width: 100%; /* Ensure piece takes full width of square */
-    height: 100%; /* Ensure piece takes full height of square */
-    display: flex; /* Use flexbox for piece to center image */
+    width: 100%;
+    height: 100%;
+    display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1;
-    cursor: grab; /* Change cursor to grab for interactivity */
+    cursor: grab;
+    transition: transform 0.5s ease-in-out;
+}
+
+.chessBoard.flipped .piece {
+    transform: rotate(180deg);
 }
 
 .piece img {
-    max-width: 90%; /* Make images fit within the square, with a little padding */
-    max-height: 90%; /* Ensure images fit vertically */
-    width: auto; /* Allow width to adjust based on max-height */
-    height: auto; /* Allow height to adjust based on max-width */
-    object-fit: contain; /* Maintain aspect ratio and fit within content box */
+    max-width: 90%;
+    max-height: 90%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
 }
-
 
 .coordinate {
     position: absolute;
     font-weight: bold;
     font-family: Verdana, Geneva, Tahoma, sans-serif;
-    z-index: 1; /* Ensure coordinates are above pieces if overlapping */
+    z-index: 1;
 }
 
 .coordinate.rank {
-    top: 4%; /* Adjust as needed */
-    right: 4%; /* Adjust as needed */
-    left: auto; /* Ensure it sticks to the right */
-    bottom: auto; /* Ensure it sticks to the top */
-    color: black; /* Set a default color, overridden by whiteText/blackText if needed */
+    top: 4%;
+    right: 4%;
+    left: auto;
+    bottom: auto;
+    color: black;
 }
 
 .coordinate.file {
-    bottom: 4%; /* Adjust as needed */
-    left: 4%; /* Adjust as needed */
-    top: auto; /* Ensure it sticks to the bottom */
-    right: auto; /* Ensure it sticks to the left */
-    color: black; /* Set a default color, overridden by whiteText/blackText if needed */
+    bottom: 4%;
+    left: 4%;
+    top: auto;
+    right: auto;
+    color: black;
 }
 
 .whiteText {
-    color: white; /* Applies to coordinate text that should be white */
+    color: white;
 }
 
 .blackText {
-    color: black; /* Applies to coordinate text that should be black */
+    color: black;
 }
 
 /* Styles for Pawn Promotion UI */
@@ -98,12 +153,12 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent black overlay */
+    background-color: rgba(0, 0, 0, 0.7);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 100; /* Ensure it's on top of everything */
-    visibility: hidden; /* Hidden by default */
+    z-index: 100;
+    visibility: hidden;
     opacity: 0;
     transition: visibility 0s, opacity 0.3s ease-in-out;
 }
@@ -119,13 +174,13 @@ body {
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     display: flex;
-    gap: 15px; /* Space between choices */
-    flex-wrap: wrap; /* Allow choices to wrap on smaller screens */
+    gap: 15px;
+    flex-wrap: wrap;
     justify-content: center;
 }
 
 .promotion-choice {
-    width: 100px; /* Fixed size for each choice button */
+    width: 100px;
     height: 100px;
     background-color: #eee;
     border: 2px solid #ccc;
@@ -143,179 +198,171 @@ body {
 }
 
 .promotion-choice img {
-    max-width: 80%; /* Make piece images fit within the choice button */
+    max-width: 80%;
     max-height: 80%;
     object-fit: contain;
 }
 
-
-/* Media queries for responsiveness */
-@media (max-width: 600px) {
-    .chessBoard {
-        width: 90vw; /* Use vw for smaller screens */
-        height: 90vw;
-    }
-    .coordinate {
-        font-size: 8px; /* Smaller font for coordinates on small screens */
-    }
-    .promotion-choice {
-        width: 70px; /* Smaller choice buttons on small screens */
-        height: 70px;
-    }
-}
-
-/* This media query was problematic in your original code; let's simplify */
-@media (min-width: 601px) { /* Apply desktop styles above 600px */
-    .coordinate {
-        font-size: 12px; /* Larger font for coordinates on desktop */
-    }
-}
-
-/* --- New and Modified Styles for Layout and Eval Bar --- */
-.container {
-    display: flex; /* Use flexbox to lay out chessboard and eval bar side-by-side */
-    align-items: flex-start; /* Align items to the top, so eval bar doesn't center vertically */
-    gap: 20px; /* Add some space between the board and the eval bar */
-    /* Remove any fixed width/height to allow flex to manage it */
-}
-
+/* Evaluation Bar and Lines */
 #evalBar {
     background-color: rgb(255,255,255);
-    width: 30px; /* Set a fixed width for the eval bar */
-    height: 600px; /* Match the height of the chessboard on desktop */
+    width: 30px;
+    height: 600px;
     display: flex;
-    flex-direction: column; /* Stack children vertically */
-    justify-content: flex-end; /* Push the black bar to the bottom initially */
-    align-items: center; /* Center content horizontally */
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
     position: relative;
     border-radius: 3px;
-    overflow: hidden; /* Hide anything outside the bar */
+    overflow: hidden;
 }
 
 #evalBar::after{
     content: "";
     display: block;
-    position: absolute; /* Corrected 'absolut' to 'absolute' */
+    position: absolute;
     top: 0;
     bottom: 0;
     left: 0;
     right: 0;
-    box-shadow: 0 0 5px rgba(0,0,0,0.7) inset; /* Corrected rgba alpha value */
+    box-shadow: 0 0 5px rgba(0,0,0,0.7) inset;
     border-radius: 3px;
 }
 
 #evalBar .blackBar {
     width: 100%;
-    height: 35%; /* This will be dynamically changed by JS for evaluation */
+    height: 35%;
     background-color: #656;
-    transition: height 1s ease-in-out; /* Corrected 'hieght' to 'height' */
-    position: absolute; /* Position relative to #evalBar */
-    bottom: 0; /* Anchor to the bottom */
+    transition: height 1s ease-in-out;
+    position: absolute;
+    bottom: 0;
     border-radius: 3px;
 }
 
 .zero {
     width: 100%;
     opacity: 1;
-    border-bottom: 2px solid rgba(214, 79, 0, 0.8); /* Adjusted border thickness and opacity for visibility */
-    position:absolute;
-    top: 50%; /* Position at the vertical center of the eval bar */
-    transform: translateY(-50%); /* Adjust for its own height to truly center */
-    height: auto; /* Remove fixed height */
-    z-index: 2; /* Ensure it's above the blackBar if needed */
+    border-bottom: 2px solid rgba(214, 79, 0, 0.8);
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: auto;
+    z-index: 2;
 }
 
 .evalNum {
     width: 100%;
     opacity: 1;
     position: absolute;
-    top: 5px; /* Position at the top of the eval bar */
-    height: auto; /* Remove fixed height */
-    font-size: 0.8rem; /* Increased font size for readability */
+    top: 5px;
+    height: auto;
+    font-size: 0.8rem;
     font-weight: bolder;
     text-align: center;
     color: #d18232;
-    z-index: 2; /* Ensure it's above the blackBar if needed */
+    z-index: 2;
 }
 
-@media (max-width: 600px){ /* Adjusted media query for smaller screens */
-    .container {
-        flex-direction: column; /* Stack board and eval bar vertically on small screens */
-        align-items: center; /* Center items when stacked */
-    }
-    #evalBar {
-        width: 90vw; /* Make eval bar span width of screen */
-        height: 30px; /* Make it short and horizontal */
-        flex-direction: row; /* Lay out children horizontally */
-        justify-content: center;
-    }
-    #evalBar .blackBar {
-        height: 100%;
-        width: 35%; /* Adjust for horizontal bar */
-        left: 0; /* Anchor to the left */
-        top: 0;
-    }
-    .zero {
-        height: 100%;
-        width: 2px; /* Make it a vertical line */
-        border-bottom: none; /* Remove horizontal border */
-        border-right: 2px solid rgba(214, 79, 0, 0.8); /* Add vertical border */
-        left: 50%; /* Center vertically */
-        top: 0;
-        transform: translateX(-50%);
-    }
-    .evalNum {
-        top: auto; /* Remove top positioning */
-        bottom: 5px; /* Position at the bottom of the horizontal bar */
-        font-size: 0.6rem;
-    }
-}
-
-@media (min-width: 601px){ /* Apply desktop styles above 600px */
-    #evalBar {
-        height: 600px; /* Match chessboard height */
-    }
-}
 #topLines {
-  display: flex;
-  flex-directoin: column;
-  margin-top: 10px;
-  border-radius: 4px;
-  border-radius: 4px;
-  border: 1px solid lightgray;
-  background-color: whitesmoke;
-  border-spacing: 0px;
-  max-width: 80vw;
-  overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    margin: 20px 0;
+    border-radius: 4px;
+    border: 1px solid lightgray;
+    background-color: whitesmoke;
+    border-spacing: 0;
+    width: 600px;
+    overflow: hidden;
 }
 
-#topLines td {
+#topLines td, #topLines th {
     border-collapse: collapse;
     border: 1px solid lightgray;
     padding: 8px;
     font-size: 17px;
     white-space: nowrap;
-    width: 100%;
     text-align: left;
 }
 
-#topLines th {
-    padding: 8px;
-    text-align: left;
+#eval1, #eval2, #eval3 {
+    min-width: 60px;
+    text-align: right;
 }
 
-#topLines td, #topLines th {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 500px;  
+#line1, #line2, #line3 {
+    min-width: 400px;
 }
-#line1, #line2, #line3{
-    min-width: 500px;
-}
-#eval1, #eval2, #eval3{
-    min-width: 40px;
-}
-tr{
-    height: 40px;
+
+/* Media Queries */
+@media (max-width: 600px){
+    body {
+        flex-direction: column;
+    }
+    .top-container {
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+    }
+    .container {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    .buttonContainer {
+        flex-direction: row;
+        width: 90vw;
+        justify-content: center;
+        align-items: center;
+        margin: 10px 0;
+    }
+    .buttonContainer button, .buttonContainer select {
+        width: 25vw;
+        font-size: 10px;
+        margin: 0 2px;
+    }
+    .level-select {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    .chessBoard {
+        width: 90vw;
+        height: 90vw;
+    }
+    #evalBar {
+        width: 90vw;
+        height: 30px;
+        flex-direction: row;
+        justify-content: center;
+    }
+    #evalBar .blackBar {
+        height: 100%;
+        width: 35%;
+        left: 0;
+        top: 0;
+    }
+    .zero {
+        height: 100%;
+        width: 2px;
+        border-bottom: none;
+        border-right: 2px solid rgba(214, 79, 0, 0.8);
+        left: 50%;
+        top: 0;
+        transform: translateX(-50%);
+    }
+    .evalNum {
+        top: auto;
+        bottom: 5px;
+        font-size: 0.6rem;
+    }
+    #topLines {
+        width: 90vw;
+        font-size: 10px;
+    }
+    #topLines td, #topLines th {
+        font-size: 10px;
+    }
+    #line1, #line2, #line3{
+        max-width: 200px;
+    }
 }

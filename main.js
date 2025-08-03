@@ -1,108 +1,224 @@
 // Global board state
-let board = []; // Will be an 8x8 array representing the board
+let board = [];
 let legalSquares = [];
-let isWhiteTurn = true; // Track whose turn it is
-let enPassantTargetSquare = null; // Track the square behind a pawn that just moved two squares
-let selectedSquare = null; // Track the currently selected square
-let selectedPiece = null; // Track the currently selected piece
-let pawnPromotionTargetSquareId = null; // Stores the square where pawn promotion happens
+let isWhiteTurn = true;
+let enPassantTargetSquare = null;
+let selectedSquare = null;
+let selectedPiece = null;
+let pawnPromotionTargetSquareId = null;
+let isEngineWhite = false;
+let selectedLevel = 10;
 
 // Castling flags
 let hasWhiteKingMoved = false;
 let hasBlackKingMoved = false;
-let hasWhiteKingsideRookMoved = false; // h1 rook
-let hasWhiteQueensideRookMoved = false; // a1 rook
-let hasBlackKingsideRookMoved = false; // h8 rook
-let hasBlackQueensideRookMoved = false; // a8 rook
+let hasWhiteKingsideRookMoved = false;
+let hasWhiteQueensideRookMoved = false;
+let hasBlackKingsideRookMoved = false;
+let hasBlackQueensideRookMoved = false;
 
-// Global Stockfish worker instance - CRITICAL: Initialize only once
+// Global Stockfish worker instance
 let stockfishWorker = null;
-let evaluations = []; // Moved to global scope to persist between messages
-let lines = []; // Array to store PV lines for each multipv
-let scoreStrings = []; // Array to store scoreString per multipv
+let evaluations = [];
+let lines = [];
+let scoreStrings = [];
 
+// DOM element references
+const chessBoard = document.querySelector('.chessBoard');
 const boardSquares = document.getElementsByClassName('square');
 const pieces = document.getElementsByClassName('piece');
-const piecesImages = document.getElementsByTagName("img");
-
-// Promotion UI elements
+const newGameBtn = document.getElementById("newGame");
+const switchSidesBtn = document.getElementById("switchSides");
+const levelSelect = document.getElementById("level");
 const promotionOverlay = document.getElementById('promotion-overlay');
 const promotionChoices = document.querySelector('.promotion-choices');
+let evaluationElements = null;
 
 // Ensure DOM is fully loaded before setting up event listeners
 document.addEventListener('DOMContentLoaded', (event) => {
     setupBoardSquares();
-    initializeBoardState(); // Initialize the internal board state
-    setupPieces(); // Setup drag listeners for initial pieces
-    renderBoard(); // Render the board based on initial state
-    initializeEvaluationElements(); // Initialize evaluation display elements cache
+    initializeBoardState();
+    initializeEvaluationElements();
+    setupPieces();
+    renderBoard();
+
+    // Event Listeners for buttons
+    newGameBtn.addEventListener("click", newGame);
+    switchSidesBtn.addEventListener("click", flipBoard);
+    levelSelect.addEventListener("change", function(){
+        selectedLevel = this.value;
+    });
+
     finalizeMove();
 });
 
 /**
+ * Initializes all the necessary global and state variables for a new game.
+ */
+function newGame() {
+    // This is the correct initial HTML string for the board
+    const initialBoardHTML = `
+        <div class="square white" id="a8">
+            <div class="coordinate rank blackText">8</div>
+            <div class="piece rook" color="black"><img src="black-Rook.png" alt="Black Rook"></div>
+        </div>
+        <div class="square black" id="b8">
+            <div class="piece knight" color="black"><img src="black-Knight.png" alt="Black Knight"></div>
+        </div>
+        <div class="square white" id="c8">
+            <div class="piece bishop" color="black"><img src="black-Bishop.png" alt="Black Bishop"></div>
+        </div>
+        <div class="square black" id="d8">
+            <div class="piece queen" color="black"><img src="black-Queen.png" alt="Black Queen"></div>
+        </div>
+        <div class="square white" id="e8">
+            <div class="piece king" color="black"><img src="black-King.png" alt="Black King"></div>
+        </div>
+        <div class="square black" id="f8">
+            <div class="piece bishop" color="black"><img src="black-Bishop.png" alt="Black Bishop"></div>
+        </div>
+        <div class="square white" id="g8">
+            <div class="piece knight" color="black"><img src="black-Knight.png" alt="Black Knight"></div>
+        </div>
+        <div class="square black" id="h8">
+            <div class="piece rook" color="black"><img src="black-Rook.png" alt="Black Rook"></div>
+        </div>
+        <div class="square black" id="a7">
+            <div class="coordinate rank whiteText">7</div>
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square white" id="b7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square black" id="c7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square white" id="d7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square black" id="e7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square white" id="f7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square black" id="g7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square white" id="h7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square white" id="a6"></div><div class="square black" id="b6"></div><div class="square white" id="c6"></div><div class="square black" id="d6"></div><div class="square white" id="e6"></div><div class="square black" id="f6"></div><div class="square white" id="g6"></div><div class="square black" id="h6"></div>
+        <div class="square black" id="a5"></div><div class="square white" id="b5"></div><div class="square black" id="c5"></div><div class="square white" id="d5"></div><div class="square black" id="e5"></div><div class="square white" id="f5"></div><div class="square black" id="g5"></div><div class="square white" id="h5"></div>
+        <div class="square white" id="a4"></div><div class="square black" id="b4"></div><div class="square white" id="c4"></div><div class="square black" id="d4"></div><div class="square white" id="e4"></div><div class="square black" id="f4"></div><div class="square white" id="g4"></div><div class="square black" id="h4"></div>
+        <div class="square black" id="a3"></div><div class="square white" id="b3"></div><div class="square black" id="c3"></div><div class="square white" id="d3"></div><div class="square black" id="e3"></div><div class="square white" id="f3"></div><div class="square black" id="g3"></div><div class="square white" id="h3"></div>
+        <div class="square white" id="a2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square black" id="b2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square white" id="c2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square black" id="d2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square white" id="e2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square black" id="f2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square white" id="g2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square black" id="h2"><div class="coordinate rank whiteText">2</div><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square black" id="a1"><div class="coordinate file whiteText">a</div><div class="piece rook" color="white"><img src="white-Rook.png" alt="White Rook"></div></div>
+        <div class="square white" id="b1"><div class="coordinate file blackText">b</div><div class="piece knight" color="white"><img src="white-Knight.png" alt="White Knight"></div></div>
+        <div class="square black" id="c1"><div class="coordinate file whiteText">c</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div></div>
+        <div class="square white" id="d1"><div class="coordinate file blackText">d</div><div class="piece queen" color="white"><img src="white-Queen.png" alt="White Queen"></div></div>
+        <div class="square black" id="e1"><div class="coordinate file whiteText">e</div><div class="piece king" color="white"><img src="white-King.png" alt="White King"></div></div>
+        <div class="square white" id="f1"><div class="coordinate file blackText">f</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div></div>
+        <div class="square black" id="g1"><div class="coordinate file whiteText">g</div><div class="piece knight" color="white"><img src="white-Knight.png" alt="White Knight"></div></div>
+        <div class="square white" id="h1"><div class="coordinate file blackText">h</div><div class="coordinate rank blackText">1</div><div class="piece rook" color="white"><img src="white-Rook.png" alt="White Rook"></div></div>
+    `;
+
+    chessBoard.innerHTML = initialBoardHTML;
+    // Reset all global state variables
+    board = [];
+    legalSquares = [];
+    isWhiteTurn = true;
+    enPassantTargetSquare = null;
+    selectedSquare = null;
+    selectedPiece = null;
+    pawnPromotionTargetSquareId = null;
+    isEngineWhite = false;
+    hasWhiteKingMoved = false;
+    hasBlackKingMoved = false;
+    hasWhiteKingsideRookMoved = false;
+    hasWhiteQueensideRookMoved = false;
+    hasBlackKingsideRookMoved = false;
+    hasBlackQueensideRookMoved = false;
+
+    // Reset UI and listeners
+    setupBoardSquares();
+    initializeBoardState();
+    setupPieces();
+    renderBoard();
+    finalizeMove();
+}
+
+/**
+ * Flips the board and switches sides for the AI opponent.
+ */
+function flipBoard() {
+    chessBoard.classList.toggle('flipped');
+    isEngineWhite = !isEngineWhite;
+    renderBoard();
+    if((isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn)) {
+        const currentFEN = generateFEN(board);
+        getBestMove(currentFEN, playBestMove);
+    }
+}
+
+/**
  * Sets up event listeners and IDs for each square on the chessboard.
- * This is primarily for initial DOM setup and event listeners.
  */
 function setupBoardSquares() {
-    for (let i = 0; i < boardSquares.length; i++) {
-        boardSquares[i].addEventListener('dragover', allowDrop);
-        boardSquares[i].addEventListener('drop', drop);
-        boardSquares[i].addEventListener('click', selectSquare);
+    const allBoardSquares = document.querySelectorAll('.chessBoard > .square');
+    for (let i = 0; i < allBoardSquares.length; i++) {
+        allBoardSquares[i].addEventListener('dragover', allowDrop);
+        allBoardSquares[i].addEventListener('drop', drop);
+        allBoardSquares[i].addEventListener('click', selectSquare);
 
         // Calculate row and column for ID
-        let row = 8 - Math.floor(i / 8); // Ranks 8 to 1
-        let column = String.fromCharCode(97 + (i % 8)); // Files a to h
-        let square = boardSquares[i];
-        square.id = column + row;
+        let row = 8 - Math.floor(i / 8);
+        let column = String.fromCharCode(97 + (i % 8));
+        allBoardSquares[i].id = column + row;
     }
 }
 
 /**
  * Sets up draggable attribute and IDs for each piece.
- * This function is called initially and after every renderBoard() call.
  */
 function setupPieces() {
-    // Remove existing drag listeners to prevent duplicates
-    for (let i = 0; i < pieces.length; i++) {
-        pieces[i].removeEventListener('dragstart', drag);
-    }
-    // Get fresh list of pieces after renderBoard
-    const currentPieces = document.getElementsByClassName('piece');
-    for (let i = 0; i < currentPieces.length; i++) {
-        currentPieces[i].addEventListener('dragstart', drag);
-        currentPieces[i].setAttribute('draggable', true);
-        // Piece ID format: pieceType + squareId (e.g., "rook-a8")
-        currentPieces[i].id = currentPieces[i].classList[1] + "-" + currentPieces[i].parentElement.id;
+    const allPieces = document.getElementsByClassName('piece');
+    for (let i = 0; i < allPieces.length; i++) {
+        allPieces[i].removeEventListener('dragstart', drag);
+        allPieces[i].addEventListener('dragstart', drag);
+        allPieces[i].setAttribute('draggable', true);
+        allPieces[i].id = allPieces[i].classList[1] + "-" + allPieces[i].parentElement.id;
     }
     const currentPieceImages = document.getElementsByTagName("img");
     for (let i = 0; i < currentPieceImages.length; i++) {
-        currentPieceImages[i].setAttribute('draggable', false); // Prevent image itself from being draggable
+        currentPieceImages[i].setAttribute('draggable', false);
     }
 }
 
 /**
  * Helper to convert square ID (e.g., "a1") to board indices [row, col].
- * Board array: board[0][0] is a8, board[7][7] is h1.
- * @param {string} squareId The ID of the square (e.g., "a1").
- * @returns {Array<number>} An array [rowIndex, colIndex].
  */
 function squareIdToCoords(squareId) {
-    const file = squareId.charCodeAt(0) - 97; // 'a' -> 0, 'b' -> 1, ...
-    const rank = parseInt(squareId.charAt(1)); // '1' -> 1, '2' -> 2, ...
-    const rowIndex = 8 - rank; // Rank 8 is row 0, Rank 1 is row 7
+    const file = squareId.charCodeAt(0) - 97;
+    const rank = parseInt(squareId.charAt(1));
+    const rowIndex = 8 - rank;
     const colIndex = file;
     return [rowIndex, colIndex];
 }
 
 /**
  * Helper to convert board indices [row, col] to square ID (e.g., "a1").
- * @param {number} rowIndex The row index (0-7).
- * @param {number} colIndex The column index (0-7).
- * @returns {string} The square ID (e.g., "a1").
  */
 function coordsToSquareId(rowIndex, colIndex) {
     const fileChar = String.fromCharCode(97 + colIndex);
-    const rankNum = 8 - rowIndex; // Convert row index back to rank number
+    const rankNum = 8 - rowIndex;
     return fileChar + rankNum;
 }
 
@@ -111,79 +227,116 @@ function coordsToSquareId(rowIndex, colIndex) {
  */
 function initializeBoardState() {
     board = Array(8).fill(null).map(() => Array(8).fill(null));
-    for (let i = 0; i < boardSquares.length; i++) {
-        const squareElement = boardSquares[i];
+    const allBoardSquares = document.querySelectorAll('.chessBoard > .square');
+    for (let i = 0; i < allBoardSquares.length; i++) {
+        const squareElement = allBoardSquares[i];
         const [row, col] = squareIdToCoords(squareElement.id);
         const pieceElement = squareElement.querySelector('.piece');
         if (pieceElement) {
             board[row][col] = {
-                type: pieceElement.classList[1], // e.g., 'rook', 'pawn'
-                color: pieceElement.getAttribute('color') // 'white' or 'black'
+                type: pieceElement.classList[1],
+                color: pieceElement.getAttribute('color')
             };
         }
     }
-    // Initialize castling flags
     hasWhiteKingMoved = false;
     hasBlackKingMoved = false;
     hasWhiteKingsideRookMoved = false;
     hasWhiteQueensideRookMoved = false;
     hasBlackKingsideRookMoved = false;
     hasBlackQueensideRookMoved = false;
-    // Initialize en passant target
-    enPassantTargetSquare = null; // Ensure this is null at game start
+    enPassantTargetSquare = null;
 }
 
 /**
  * Updates the DOM to reflect the internal board state.
- * Clears and re-appends pieces to squares.
  */
 function renderBoard() {
+    const chessBoard = document.querySelector('.chessBoard');
+    const existingCoordinates = chessBoard.querySelectorAll('.coordinate');
+    
+    // Create an object to hold coordinates to re-append later
+    const coordinatesMap = {};
+    existingCoordinates.forEach(coord => {
+      const square = coord.parentElement;
+      if (!coordinatesMap[square.id]) {
+        coordinatesMap[square.id] = [];
+      }
+      coordinatesMap[square.id].push(coord.outerHTML);
+    });
+
+    const allBoardSquares = document.querySelectorAll('.chessBoard > .square');
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             const squareId = coordsToSquareId(r, c);
             const squareElement = document.getElementById(squareId);
+            
+            // Clear all existing children (pieces and coordinates)
+            while (squareElement.firstChild) {
+                squareElement.removeChild(squareElement.firstChild);
+            }
 
-            // Clear existing piece (and its image) from the DOM square
-            const existingPiece = squareElement.querySelector('.piece');
-            if (existingPiece) {
-                squareElement.removeChild(existingPiece);
+            // Restore coordinates
+            if (coordinatesMap[squareId]) {
+                coordinatesMap[squareId].forEach(coordHTML => {
+                    squareElement.insertAdjacentHTML('beforeend', coordHTML);
+                });
             }
 
             const piece = board[r][c];
             if (piece) {
-                // Create new piece div and image
                 const pieceDiv = document.createElement('div');
                 pieceDiv.classList.add('piece', piece.type);
                 pieceDiv.setAttribute('color', piece.color);
-                pieceDiv.id = piece.type + "-" + squareId; // Re-assign ID for drag/drop
+                pieceDiv.id = piece.type + "-" + squareId;
                 pieceDiv.setAttribute('draggable', true);
 
                 const pieceImg = document.createElement('img');
-                // Construct image source based on piece color and type (e.g., 'black-Rook.png')
                 pieceImg.src = `${piece.color}-${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.png`;
                 pieceImg.alt = `${piece.color} ${piece.type}`;
-                pieceImg.setAttribute('draggable', false); // Prevent image itself from being draggable
+                pieceImg.setAttribute('draggable', false);
 
                 pieceDiv.appendChild(pieceImg);
                 squareElement.appendChild(pieceDiv);
             }
         }
     }
-    // Re-setup drag listeners for newly rendered pieces, as old elements are removed
     setupPieces();
 }
 
 /**
- * Placeholder for selecting a square by click.
- * @param {Event} event The click event.
+ * Handles the click-to-move logic.
  */
 function selectSquare(event) {
-    console.log("Square clicked:", event.currentTarget.id);
+    const clickedSquare = event.currentTarget;
+    const pieceOnSquare = clickedSquare.querySelector('.piece');
+    const clickedSquareId = clickedSquare.id;
+
+    if (selectedPiece) {
+        // A piece is already selected, try to move it
+        const originalSquareId = selectedPiece.parentElement.id;
+        if (legalSquares.includes(clickedSquareId)) {
+            performMove(originalSquareId, clickedSquareId);
+            selectedPiece = null;
+            legalSquares.length = 0;
+        } else {
+            // Deselect piece if a non-legal square is clicked
+            selectedPiece = null;
+            legalSquares.length = 0;
+        }
+    } else if (pieceOnSquare) {
+        // No piece selected, try to select one
+        const pieceColor = pieceOnSquare.getAttribute("color");
+        const isPlayerTurn = (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
+        if (isPlayerTurn && ((isWhiteTurn && pieceColor === "white") || (!isWhiteTurn && pieceColor === "black"))) {
+            selectedPiece = pieceOnSquare;
+            legalSquares = getLegalMovesForPiece(clickedSquareId, pieceOnSquare);
+        }
+    }
 }
 
 /**
  * Allows a drop operation to occur on a valid drop target.
- * @param {Event} event The dragover event.
  */
 function allowDrop(event) {
     event.preventDefault();
@@ -191,19 +344,18 @@ function allowDrop(event) {
 
 /**
  * Handles the start of a drag operation for a chess piece.
- * @param {Event} ev The dragstart event.
  */
 function drag(ev) {
     const piece = ev.target.closest('.piece');
     if (!piece) return;
-
     const pieceColor = piece.getAttribute("color");
-    if ((isWhiteTurn && pieceColor === "white") || (!isWhiteTurn && pieceColor === "black")) {
+    const isPlayerTurn = (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
+
+    if (isPlayerTurn && ((isWhiteTurn && pieceColor === "white") || (!isWhiteTurn && pieceColor === "black"))) {
         selectedPiece = piece;
         ev.dataTransfer.setData("text", piece.id);
         const startingSquareId = piece.parentNode.id;
         legalSquares = getLegalMovesForPiece(startingSquareId, piece);
-        console.log("Legal moves for " + piece.classList[1] + " on " + startingSquareId + ":", legalSquares);
     } else {
         ev.preventDefault();
     }
@@ -211,89 +363,20 @@ function drag(ev) {
 
 /**
  * Handles the drop of a piece onto a square.
- * @param {Event} ev The drop event.
+ * This is the primary human player move function.
  */
 function drop(ev) {
     ev.preventDefault();
-    let data = ev.dataTransfer.getData("text");
+    const data = ev.dataTransfer.getData("text");
     const pieceElement = document.getElementById(data);
     const destinationSquare = ev.currentTarget;
-    let destinationSquareId = destinationSquare.id;
-
+    const destinationSquareId = destinationSquare.id;
     const originalSquareId = pieceElement.parentNode.id;
-    const [fromRow, fromCol] = squareIdToCoords(originalSquareId);
-    const [toRow, toCol] = squareIdToCoords(destinationSquareId);
-
-    const prevEnPassantTargetSquare = enPassantTargetSquare;
-    enPassantTargetSquare = null;
 
     if (legalSquares.includes(destinationSquareId)) {
-        const pieceType = board[fromRow][fromCol].type;
-        const pieceColor = board[fromRow][fromCol].color;
-
-        if (pieceType === 'king' && Math.abs(fromCol - toCol) === 2) {
-            let rookFromCol, rookToCol;
-            if (toCol === 6) {
-                rookFromCol = 7;
-                rookToCol = 5;
-            } else if (toCol === 2) {
-                rookFromCol = 0;
-                rookToCol = 3;
-            }
-
-            board[toRow][toCol] = board[fromRow][fromCol];
-            board[fromRow][fromCol] = null;
-
-            board[toRow][rookToCol] = board[toRow][rookFromCol];
-            board[toRow][rookFromCol] = null;
-
-            if (pieceColor === 'white') {
-                hasWhiteKingMoved = true;
-                if (rookFromCol === 7) hasWhiteKingsideRookMoved = true;
-                else if (rookFromCol === 0) hasWhiteQueensideRookMoved = true;
-            } else {
-                hasBlackKingMoved = true;
-                if (rookFromCol === 7) hasBlackKingsideRookMoved = true;
-                else if (rookFromCol === 0) hasBlackQueensideRookMoved = true;
-            }
-        } else if (pieceType === 'pawn' && destinationSquareId === prevEnPassantTargetSquare) {
-            const capturedPawnRow = fromRow;
-            const capturedPawnCol = toCol;
-            board[capturedPawnRow][capturedPawnCol] = null;
-
-            board[toRow][toCol] = board[fromRow][fromCol];
-            board[fromRow][fromCol] = null;
-        } else {
-            board[toRow][toCol] = board[fromRow][fromCol];
-            board[fromRow][fromCol] = null;
-
-            if (pieceType === 'king') {
-                if (pieceColor === 'white') hasWhiteKingMoved = true;
-                else hasBlackKingMoved = true;
-            } else if (pieceType === 'rook') {
-                if (pieceColor === 'white') {
-                    if (fromCol === 7 && fromRow === 7) hasWhiteKingsideRookMoved = true;
-                    else if (fromCol === 0 && fromRow === 7) hasWhiteQueensideRookMoved = true;
-                } else {
-                    if (fromCol === 7 && fromRow === 0) hasBlackKingsideRookMoved = true;
-                    else if (fromCol === 0 && fromRow === 0) hasBlackQueensideRookMoved = true;
-                }
-            }
-        }
-
-        if (pieceType === 'pawn' && Math.abs(fromRow - toRow) === 2) {
-            enPassantTargetSquare = coordsToSquareId(fromRow + (toRow - fromRow) / 2, toCol);
-        }
-
-        if (pieceType === 'pawn' && (toRow === 0 || toRow === 7)) {
-            pawnPromotionTargetSquareId = destinationSquareId;
-            renderBoard();
-            showPromotionUI(pieceColor);
-            return;
-        }
-
-        renderBoard();
-        finalizeMove();
+        performMove(originalSquareId, destinationSquareId);
+        selectedPiece = null;
+        legalSquares.length = 0;
     } else {
         console.log("Illegal move!");
         legalSquares.length = 0;
@@ -301,11 +384,114 @@ function drop(ev) {
 }
 
 /**
+ * Helper function to perform a move based on a move string (e.g., 'e2e4').
+ * This is used for the AI's move.
+ * @param {string} bestMove The move string from the engine.
+ */
+function playBestMove(bestMove) {
+    if (!bestMove || bestMove === '(none)') {
+        console.log("Engine returned no move.");
+        return;
+    }
+    const startingSquareId = bestMove.substring(0, 2);
+    const destinationSquareId = bestMove.substring(2, 4);
+    let promotedTo = "";
+    if (bestMove.length === 5) {
+        promotedTo = bestMove.substring(4, 5);
+        let pieceMap = {
+            "q": "queen", "r": "rook", "b": "bishop", "n": "knight"
+        };
+        promotedTo = pieceMap[promotedTo];
+    }
+    performMove(startingSquareId, destinationSquareId, promotedTo);
+}
+
+/**
+ * Performs the actual move on the internal board state and updates the DOM.
+ * Centralized function used by both human and AI moves.
+ * @param {string} startingSquareId The starting square ID (e.g., "e2").
+ * @param {string} destinationSquareId The destination square ID (e.g., "e4").
+ * @param {string} promotedTo The type of piece to promote to, if any.
+ */
+function performMove(startingSquareId, destinationSquareId, promotedTo = "") {
+    const [fromRow, fromCol] = squareIdToCoords(startingSquareId);
+    const [toRow, toCol] = squareIdToCoords(destinationSquareId);
+
+    const piece = board[fromRow][fromCol];
+    if (!piece) return;
+
+    const pieceType = piece.type;
+    const pieceColor = piece.color;
+    const prevEnPassantTargetSquare = enPassantTargetSquare;
+
+    // Handle Castling
+    if (pieceType === 'king' && Math.abs(fromCol - toCol) === 2) {
+        let rookFromCol, rookToCol;
+        if (toCol === 6) {
+            rookFromCol = 7;
+            rookToCol = 5;
+        } else if (toCol === 2) {
+            rookFromCol = 0;
+            rookToCol = 3;
+        }
+        board[toRow][toCol] = board[fromRow][fromCol];
+        board[fromRow][fromCol] = null;
+        board[toRow][rookToCol] = board[toRow][rookFromCol];
+        board[toRow][rookFromCol] = null;
+        if (pieceColor === 'white') {
+            hasWhiteKingMoved = true;
+            if (rookFromCol === 7) hasWhiteKingsideRookMoved = true;
+            else if (rookFromCol === 0) hasWhiteQueensideRookMoved = true;
+        } else {
+            hasBlackKingMoved = true;
+            if (rookFromCol === 7) hasBlackKingsideRookMoved = true;
+            else if (rookFromCol === 0) hasBlackQueensideRookMoved = true;
+        }
+    } 
+    // Handle En Passant
+    else if (pieceType === 'pawn' && destinationSquareId === prevEnPassantTargetSquare) {
+        const capturedPawnRow = fromRow;
+        const capturedPawnCol = toCol;
+        board[capturedPawnRow][capturedPawnCol] = null;
+        board[toRow][toCol] = board[fromRow][fromCol];
+        board[fromRow][fromCol] = null;
+    } 
+    // Handle Promotion
+    else if (pieceType === 'pawn' && (toRow === 0 || toRow === 7) && promotedTo !== "") {
+        board[toRow][toCol] = { type: promotedTo, color: pieceColor };
+        board[fromRow][fromCol] = null;
+    }
+    // Normal Move
+    else {
+        board[toRow][toCol] = board[fromRow][fromCol];
+        board[fromRow][fromCol] = null;
+        if (pieceType === 'king') {
+            if (pieceColor === 'white') hasWhiteKingMoved = true;
+            else hasBlackKingMoved = true;
+        } else if (pieceType === 'rook') {
+            if (pieceColor === 'white') {
+                if (fromCol === 7 && fromRow === 7) hasWhiteKingsideRookMoved = true;
+                else if (fromCol === 0 && fromRow === 7) hasWhiteQueensideRookMoved = true;
+            } else {
+                if (fromCol === 7 && fromRow === 0) hasBlackKingsideRookMoved = true;
+                else if (fromCol === 0 && fromRow === 0) hasBlackQueensideRookMoved = true;
+            }
+        }
+    }
+
+    // Update en passant target if pawn moved two squares
+    if (pieceType === 'pawn' && Math.abs(fromRow - toRow) === 2) {
+        enPassantTargetSquare = coordsToSquareId(fromRow + (toRow - fromRow) / 2, toCol);
+    } else {
+        enPassantTargetSquare = null;
+    }
+
+    renderBoard();
+    finalizeMove();
+}
+
+/**
  * Checks if a square is occupied and by what color on the internal board.
- * @param {number} rowIndex The row index (0-7).
- * @param {number} colIndex The column index (0-7).
- * @param {Array<Array<Object|null>>} boardState The board state to check (defaults to global `board`).
- * @returns {string} "white", "black", "blank", or "out-of-bounds".
  */
 function isSquareOccupied(rowIndex, colIndex, boardState = board) {
     if (rowIndex < 0 || rowIndex > 7 || colIndex < 0 || colIndex > 7) {
@@ -317,35 +503,22 @@ function isSquareOccupied(rowIndex, colIndex, boardState = board) {
 
 /**
  * Simulates a move on a temporary board state.
- * @param {number} fromRow Starting row index.
- * @param {number} fromCol Starting column index.
- * @param {number} toRow Destination row index.
- * @param {number} toCol Destination column index.
- * @param {Array<Array<Object|null>>} currentBoard The current board state to simulate from.
- * @param {boolean} isEnPassantCapture Optional: true if this is an en passant capture simulation.
- * @returns {Array<Array<Object|null>>} A new board state after the simulated move.
  */
 function simulateMove(fromRow, fromCol, toRow, toCol, currentBoard, isEnPassantCapture = false) {
     const simulatedBoard = currentBoard.map(row => row.slice());
-
     const piece = simulatedBoard[fromRow][fromCol];
     simulatedBoard[toRow][toCol] = piece;
     simulatedBoard[fromRow][fromCol] = null;
-
     if (isEnPassantCapture) {
         const capturedPawnRow = fromRow;
         const capturedPawnCol = toCol;
         simulatedBoard[capturedPawnRow][capturedPawnCol] = null;
     }
-
     return simulatedBoard;
 }
 
 /**
  * Finds the king's position for a given color on a board state.
- * @param {string} kingColor The color of the king to find ("white" or "black").
- * @param {Array<Array<Object|null>>} boardState The board state to search.
- * @returns {Array<number>|null} [rowIndex, colIndex] of the king, or null if not found.
  */
 function findKing(kingColor, boardState) {
     for (let r = 0; r < 8; r++) {
@@ -361,17 +534,12 @@ function findKing(kingColor, boardState) {
 
 /**
  * Checks if a king of a given color is in check on a specific board state.
- * @param {string} kingColor The color of the king to check ("white" or "black").
- * @param {Array<Array<Object|null>>} boardState The board state to evaluate.
- * @returns {boolean} True if the king is in check, false otherwise.
  */
 function isKingInCheck(kingColor, boardState) {
     const kingCoords = findKing(kingColor, boardState);
     if (!kingCoords) return false;
-
     const [kingRow, kingCol] = kingCoords;
     const opponentColor = kingColor === 'white' ? 'black' : 'white';
-
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             const piece = boardState[r][c];
@@ -387,28 +555,17 @@ function isKingInCheck(kingColor, boardState) {
 }
 
 /**
- * Calculates all pseudo-legal moves for a piece (moves according to piece rules,
- * without considering if it puts own king in check).
- * @param {number} startRow Starting row index.
- * @param {number} startCol Starting column index.
- * @param {string} pieceType Type of the piece (e.g., "pawn", "rook").
- * @param {string} pieceColor Color of the piece ("white" or "black").
- * @param {Array<Array<Object|null>>} boardState The board state to calculate moves on.
- * @param {boolean} [forCheckValidation=false] If true, allows king to move into check for opponent's attack calculation.
- * @returns {Array<Array<number>>} A list of pseudo-legal moves as [rowIndex, colIndex] coordinates.
+ * Calculates all pseudo-legal moves for a piece (moves according to piece rules).
  */
 function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardState, forCheckValidation = false) {
     let moves = [];
-
     const addMove = (r, c) => {
         if (r >= 0 && r <= 7 && c >= 0 && c <= 7) {
             moves.push([r, c]);
         }
     };
-
     const checkAndAddSlidingMove = (r, c) => {
         if (r < 0 || r > 7 || c < 0 || c > 7) return 'stop';
-
         const targetContent = isSquareOccupied(r, c, boardState);
         if (targetContent === 'blank') {
             addMove(r, c);
@@ -420,13 +577,11 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
             return 'stop';
         }
     };
-
     switch (pieceType) {
         case 'pawn':
             const direction = (pieceColor === "white") ? -1 : 1;
             const startRankRow = (pieceColor === "white") ? 6 : 1;
             const enPassantRank = (pieceColor === "white") ? 3 : 4;
-
             let nextRow = startRow + direction;
             if (isSquareOccupied(nextRow, startCol, boardState) === "blank") {
                 addMove(nextRow, startCol);
@@ -437,7 +592,6 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                     }
                 }
             }
-
             const captureCols = [startCol - 1, startCol + 1];
             for (const c of captureCols) {
                 const targetContent = isSquareOccupied(nextRow, c, boardState);
@@ -445,7 +599,6 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                     addMove(nextRow, c);
                 }
             }
-
             if (startRow === enPassantRank && enPassantTargetSquare !== null) {
                 for (const c of captureCols) {
                     const targetSquareId = coordsToSquareId(nextRow, c);
@@ -460,7 +613,6 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                 }
             }
             break;
-
         case 'knight':
             const knightMoves = [
                 [-2, -1], [-2, 1], [-1, -2], [-1, 2],
@@ -475,7 +627,6 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                 }
             });
             break;
-
         case 'rook':
             const rookDirections = [[-1, 0], [1, 0], [0, -1], [0, 1]];
             rookDirections.forEach(([dr, dc]) => {
@@ -487,7 +638,6 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                 }
             });
             break;
-
         case 'bishop':
             const bishopDirections = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
             bishopDirections.forEach(([dr, dc]) => {
@@ -499,7 +649,6 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                 }
             });
             break;
-
         case 'queen':
             const queenDirections = [
                 [-1, 0], [1, 0], [0, -1], [0, 1],
@@ -514,7 +663,6 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                 }
             });
             break;
-
         case 'king':
             const kingMoves = [
                 [-1, -1], [-1, 0], [-1, 1],
@@ -529,10 +677,8 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                     addMove(newRow, newCol);
                 }
             });
-
             const kingRow = (pieceColor === 'white') ? 7 : 0;
             const kingMovedFlag = (pieceColor === 'white') ? hasWhiteKingMoved : hasBlackKingMoved;
-
             if (!kingMovedFlag && startRow === kingRow && startCol === 4) {
                 const kingsideRookMovedFlag = (pieceColor === 'white') ? hasWhiteKingsideRookMoved : hasBlackKingsideRookMoved;
                 const kingsideRookCol = 7;
@@ -546,7 +692,6 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                         addMove(kingRow, 6);
                     }
                 }
-
                 const queensideRookMovedFlag = (pieceColor === 'white') ? hasWhiteQueensideRookMoved : hasBlackQueensideRookMoved;
                 const queensideRookCol = 0;
                 if (!queensideRookMovedFlag && boardState[kingRow][1] === null && boardState[kingRow][2] === null && boardState[kingRow][3] === null &&
@@ -567,22 +712,16 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
 
 /**
  * Generates and filters legal moves for a piece, ensuring the king is not left in check.
- * @param {string} startSquareId The ID of the square the piece is on.
- * @param {HTMLElement} pieceElement The piece DOM element.
- * @returns {Array<string>} A list of legal move square IDs.
  */
 function getLegalMovesForPiece(startSquareId, pieceElement) {
     const [startRow, startCol] = squareIdToCoords(startSquareId);
     const pieceType = pieceElement.classList[1];
     const pieceColor = pieceElement.getAttribute('color');
-
     const pseudoLegalMoves = getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, board);
-
     let filteredLegalMoves = [];
     for (const [toRow, toCol] of pseudoLegalMoves) {
         let simulatedBoard;
         let isEnPassantCapture = false;
-
         if (pieceType === 'pawn' && coordsToSquareId(toRow, toCol) === enPassantTargetSquare) {
             const pawnBesideRow = startRow;
             const pawnBesideCol = toCol;
@@ -591,9 +730,7 @@ function getLegalMovesForPiece(startSquareId, pieceElement) {
                 isEnPassantCapture = true;
             }
         }
-
         simulatedBoard = simulateMove(startRow, startCol, toRow, toCol, board, isEnPassantCapture);
-
         if (!isKingInCheck(pieceColor, simulatedBoard)) {
             filteredLegalMoves.push(coordsToSquareId(toRow, toCol));
         }
@@ -603,15 +740,12 @@ function getLegalMovesForPiece(startSquareId, pieceElement) {
 
 /**
  * Checks the current game status (check, checkmate, stalemate).
- * Displays messages to the user.
  */
 function checkGameStatus() {
     const currentPlayerColor = isWhiteTurn ? 'white' : 'black';
     const opponentPlayerColor = isWhiteTurn ? 'black' : 'white';
-
     const kingInCheck = isKingInCheck(currentPlayerColor, board);
     let hasLegalMoves = false;
-
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             const piece = board[r][c];
@@ -621,7 +755,6 @@ function checkGameStatus() {
                     classList: [null, piece.type],
                     getAttribute: (attr) => attr === 'color' ? piece.color : null
                 };
-
                 const legalMovesForThisPiece = getLegalMovesForPiece(pieceSquareId, dummyPieceElement);
                 if (legalMovesForThisPiece.length > 0) {
                     hasLegalMoves = true;
@@ -631,7 +764,6 @@ function checkGameStatus() {
         }
         if (hasLegalMoves) break;
     }
-
     if (kingInCheck && !hasLegalMoves) {
         showMessage(`Checkmate! ${opponentPlayerColor.toUpperCase()} wins!`);
     } else if (!kingInCheck && !hasLegalMoves) {
@@ -645,7 +777,6 @@ function checkGameStatus() {
 
 /**
  * Displays a message box on the screen.
- * @param {string} msg The message to display.
  */
 function showMessage(msg) {
     let messageBox = document.getElementById('message-box');
@@ -684,71 +815,58 @@ function clearMessage() {
 
 /**
  * Shows the pawn promotion UI.
- * @param {string} pawnColor The color of the pawn being promoted.
  */
 function showPromotionUI(pawnColor) {
     promotionChoices.innerHTML = '';
     const promotionPieces = ['queen', 'rook', 'bishop', 'knight'];
-
     promotionPieces.forEach(pieceType => {
         const choiceDiv = document.createElement('div');
         choiceDiv.classList.add('promotion-choice');
         choiceDiv.dataset.pieceType = pieceType;
         choiceDiv.addEventListener('click', () => selectPromotionPiece(pieceType, pawnColor));
-
         const pieceImg = document.createElement('img');
         pieceImg.src = `${pawnColor}-${pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}.png`;
         pieceImg.alt = `${pawnColor} ${pieceType}`;
-
         choiceDiv.appendChild(pieceImg);
         promotionChoices.appendChild(choiceDiv);
     });
-
     promotionOverlay.classList.add('active');
 }
 
 /**
  * Handles the selection of a promotion piece.
- * @param {string} selectedType The type of piece chosen for promotion (e.g., 'queen').
- * @param {string} pawnColor The color of the pawn being promoted.
  */
 function selectPromotionPiece(selectedType, pawnColor) {
     promotionOverlay.classList.remove('active');
-
     const [row, col] = squareIdToCoords(pawnPromotionTargetSquareId);
-
     board[row][col] = {
         type: selectedType,
         color: pawnColor
     };
-
     renderBoard();
-
     pawnPromotionTargetSquareId = null;
     finalizeMove();
 }
 
 /**
  * Finalizes a move: toggles turn, clears legal squares, checks game status, and updates evaluation.
- * This function is called after any successful move (normal or promotion).
  */
 function finalizeMove() {
     isWhiteTurn = !isWhiteTurn;
     legalSquares.length = 0;
-
     checkGameStatus();
-
     const currentFEN = generateFEN(board);
-    console.log("Generated FEN:", currentFEN);
-    getEvaluation(currentFEN, function(lines, evaluations, scoreStrings) {
-        displayEvaluation(lines, evaluations, scoreStrings[0]);
-    });
+    getEvaluation(currentFEN, displayEvaluation);
+
+    // AI move check
+    const isEngineTurn = (isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn);
+    if (isEngineTurn) {
+        getBestMove(currentFEN, playBestMove);
+    }
 }
 
 /**
  * Generates a FEN (Forsyth-Edwards Notation) string from the current board state.
- * @param {Array<Array<Object|null>>} boardState The current 8x8 board array.
- * @returns {string} The FEN string representing the board state.
  */
 function generateFEN(boardState) {
     let fen = '';
@@ -782,9 +900,7 @@ function generateFEN(boardState) {
             fen += '/';
         }
     }
-
     fen += ' ' + (isWhiteTurn ? 'w' : 'b');
-
     let castling = '';
     if (!hasWhiteKingMoved) {
         if (!hasWhiteKingsideRookMoved) castling += 'K';
@@ -795,41 +911,51 @@ function generateFEN(boardState) {
         if (!hasBlackQueensideRookMoved) castling += 'q';
     }
     fen += ' ' + (castling === '' ? '-' : castling);
-
     fen += ' ' + (enPassantTargetSquare || '-');
-
     fen += ' 0 1';
-
     return fen;
 }
 
 /**
+ * Gets the best move from Stockfish engine based on the current board state.
+ */
+function getBestMove(fen, callback) {
+    if (!stockfishWorker) {
+        console.error("Stockfish worker is not initialized.");
+        return;
+    }
+    const aiDepth = selectedLevel;
+    stockfishWorker.postMessage("position fen " + fen);
+    stockfishWorker.postMessage(`go depth ${aiDepth}`);
+    const listener = function(event) {
+        const message = event.data;
+        if (message.startsWith("bestmove")) {
+            const bestMove = message.split(" ")[1];
+            stockfishWorker.removeEventListener('message', listener);
+            callback(bestMove);
+        }
+    };
+    stockfishWorker.addEventListener('message', listener);
+}
+
+/**
  * Gets evaluation from Stockfish worker.
- * @param {string} fen The FEN string of the current position.
- * @param {function} callback Function to call with the evaluation results.
  */
 function getEvaluation(fen, callback) {
     if (!stockfishWorker) {
-        console.log("Creating new worker with path:", "./lib/stockfish-nnue-16.js");
         stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
         stockfishWorker.onmessage = function (event) {
             let message = event.data;
-            console.log("Stockfish Raw Message:", message);
-
             if (message.startsWith("info depth 10")) {
                 let multipvIndex = message.indexOf("multipv");
                 if (multipvIndex !== -1) {
                     let multipvString = message.slice(multipvIndex).split(" ")[1];
-                    let multipv = parseInt(multipvString) || 1; // Default to 1 if parsing fails
-
-                    // Ensure arrays are initialized with 3 slots
+                    let multipv = parseInt(multipvString) || 1;
                     while (evaluations.length < 3) evaluations.push(null);
                     while (lines.length < 3) lines.push("");
                     while (scoreStrings.length < 3) scoreStrings.push(null);
-
                     let scoreIndex = message.indexOf("score cp");
                     let pvIndex = message.indexOf("pv");
-
                     if (scoreIndex !== -1) {
                         scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
                         let evaluation = parseInt(scoreStrings[multipv - 1]) / 100 || 0;
@@ -841,24 +967,17 @@ function getEvaluation(fen, callback) {
                         let evaluation = parseInt(scoreStrings[multipv - 1]) || 0;
                         evaluations[multipv - 1] = "#" + Math.abs(evaluation);
                     }
-
                     if (pvIndex !== -1) {
-                        let pvString = message.slice(pvIndex + 3).trim().split(" ")[0] || "";
-                        lines[multipv - 1] += pvString + " ";
+                        let pvString = message.slice(pvIndex + 3).trim();
+                        lines[multipv - 1] = pvString;
                     }
-
-                    // Call callback only when all 3 multipv evaluations are received
-                    if (evaluations.every(eval => eval !== null)) {
+                    if (multipv === 3) {
                         callback(lines, evaluations, scoreStrings);
                         evaluations = [];
                         lines = [];
                         scoreStrings = [];
                     }
                 }
-            } else if (message.startsWith("info string")) {
-                console.log("Stockfish Info String:", message);
-            } else if (message.startsWith("bestmove")) {
-                console.log("Stockfish Best Move:", message);
             }
         };
         stockfishWorker.onerror = function(error) {
@@ -866,16 +985,12 @@ function getEvaluation(fen, callback) {
         };
         stockfishWorker.postMessage("uci");
         stockfishWorker.postMessage("isready");
+        stockfishWorker.postMessage("setoption name multipv value 3");
     }
-
     stockfishWorker.postMessage("ucinewgame");
-    stockfishWorker.postMessage("setoption name multipv value 3");
     stockfishWorker.postMessage("position fen " + fen);
     stockfishWorker.postMessage("go depth 10");
 }
-
-// Cache DOM elements for better performance
-let evaluationElements = null;
 
 function initializeEvaluationElements() {
     evaluationElements = {
@@ -886,100 +1001,54 @@ function initializeEvaluationElements() {
         evalLines: [],
         lineElements: []
     };
-    
-    // Cache evaluation line elements
     for (let i = 1; i <= 3; i++) {
         evaluationElements.evalLines[i-1] = document.getElementById(`eval${i}`);
         evaluationElements.lineElements[i-1] = document.getElementById(`line${i}`);
     }
 }
-
-/**
- * Displays the evaluation bar and number based on Stockfish's evaluation.
- * Improved version with error handling, performance optimization, and better code organization.
- * @param {Array<string>} lines Array of PV lines from Stockfish.
- * @param {Array<number|string>} evaluations Array of evaluations from Stockfish.
- * @param {string} scoreString The raw score string from Stockfish.
- */
 function displayEvaluation(lines, evaluations, scoreString) {
-    // Initialize elements cache if not done yet
     if (!evaluationElements) {
         initializeEvaluationElements();
     }
-    
-    // Validate inputs
     if (!Array.isArray(evaluations) || evaluations.length === 0) {
-        console.warn("Invalid evaluations data provided to displayEvaluation");
         return false;
     }
-    
-    if (!Array.isArray(lines)) {
-        lines = [];
-    }
-    
-    // Check if required DOM elements exist
-    if (!evaluationElements.blackBar || !evaluationElements.evalNum) {
-        console.error("Required evaluation bar elements not found in DOM");
-        return false;
-    }
-
     try {
-        // Get primary evaluation and sanitize it
         let evaluation = evaluations[0];
         if (evaluation === null || evaluation === undefined) {
             evaluation = 0;
         }
-        
-        // Sanitize scoreString
         scoreString = (typeof scoreString === 'string') ? scoreString.trim() : '0';
         if (!scoreString) scoreString = '0';
-
-        // Update evaluation bar and number
         updateEvaluationBar(evaluation, scoreString);
-        
-        // Update evaluation lines
         updateEvaluationLines(lines, evaluations);
-        
-        // Update main evaluation text
         updateEvaluationText(evaluation, scoreString);
-        
         return true;
-        
     } catch (error) {
         console.error("Error in displayEvaluation:", error);
         return false;
     }
 }
-
 function updateEvaluationBar(evaluation, scoreString) {
     const { blackBar, evalNum } = evaluationElements;
-    
     if (typeof evaluation === 'number') {
-        // Clamp evaluation to reasonable range
         const clampedEval = Math.max(-15, Math.min(15, evaluation));
         const blackBarHeight = 50 - (clampedEval / 15 * 100);
         const finalHeight = Math.max(0, Math.min(100, blackBarHeight));
-        
         blackBar.style.height = finalHeight + "%";
         evalNum.textContent = clampedEval.toFixed(2);
-        
     } else if (typeof evaluation === 'string' && evaluation.startsWith('#')) {
-        // Handle mate evaluations
         const scoreValue = parseInt(scoreString) || 0;
         const isWhiteWinning = (scoreValue > 0 && isWhiteTurn) || (scoreValue < 0 && !isWhiteTurn);
-        
         blackBar.style.height = isWhiteWinning ? '0%' : '100%';
         evalNum.textContent = evaluation;
     }
 }
-
 function updateEvaluationLines(lines, evaluations) {
     const maxLines = Math.min(lines.length, evaluations.length, 3);
-    
     for (let i = 0; i < 3; i++) {
         const evalElement = evaluationElements.evalLines[i];
         const lineElement = evaluationElements.lineElements[i];
-        
         if (evalElement && lineElement) {
             if (i < maxLines && evaluations[i] !== undefined) {
                 evalElement.textContent = evaluations[i].toString();
@@ -991,27 +1060,18 @@ function updateEvaluationLines(lines, evaluations) {
         }
     }
 }
-
 function updateEvaluationText(evaluation, scoreString) {
     const { evalMain, evalText } = evaluationElements;
-    
     if (!evalMain || !evalText) return;
-    
     evalMain.textContent = evaluation !== undefined ? evaluation.toString() : '';
-    
     if (typeof evaluation === 'string' && evaluation.includes('#')) {
-        // Handle mate evaluations
         const mateInMoves = Math.abs(parseInt(evaluation.slice(1)) || 0);
         const scoreValue = parseInt(scoreString) || 0;
         const isWhiteWinning = (scoreValue > 0 && isWhiteTurn) || (scoreValue < 0 && !isWhiteTurn);
         const winningColor = isWhiteWinning ? "White" : "Black";
-        
         evalText.textContent = `${winningColor} can mate in ${mateInMoves} moves`;
-        
     } else if (typeof evaluation === 'number') {
-        // Handle numeric evaluations
         const absEval = Math.abs(evaluation);
-        
         if (absEval < 0.5) {
             evalText.textContent = "Equal";
         } else if (evaluation >= 0.5 && evaluation < 1) {
