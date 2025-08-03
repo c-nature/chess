@@ -32,7 +32,7 @@ const switchSidesBtn = document.getElementById("switchSides");
 const levelSelect = document.getElementById("level");
 const promotionOverlay = document.getElementById('promotion-overlay');
 const promotionChoices = document.querySelector('.promotion-choices');
-let evaluationElements = null;
+let evaluationElements = null; // Corrected: Removed duplicate declaration
 
 // Ensure DOM is fully loaded before setting up event listeners
 document.addEventListener('DOMContentLoaded', (event) => {
@@ -680,9 +680,7 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
             break;
         case 'king':
             const kingMoves = [
-                [-1, -1], [-1, 0], [-1, 1],
-                [0, -1], [0, 1],
-                [1, -1], [1, 0], [1, 1]
+                [-1, -1], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 1], [1, 0]
             ];
             kingMoves.forEach(([dr, dc]) => {
                 const newRow = startRow + dr;
@@ -755,6 +753,7 @@ function getLegalMovesForPiece(startSquareId, pieceElement) {
 
 /**
  * Checks the current game status (check, checkmate, stalemate).
+ * Displays messages to the user.
  */
 function checkGameStatus() {
     const currentPlayerColor = isWhiteTurn ? 'white' : 'black';
@@ -792,6 +791,7 @@ function checkGameStatus() {
 
 /**
  * Displays a message box on the screen.
+ * @param {string} msg The message to display.
  */
 function showMessage(msg) {
     let messageBox = document.getElementById('message-box');
@@ -830,6 +830,7 @@ function clearMessage() {
 
 /**
  * Shows the pawn promotion UI.
+ * @param {string} pawnColor The color of the pawn being promoted.
  */
 function showPromotionUI(pawnColor) {
     promotionChoices.innerHTML = '';
@@ -850,6 +851,8 @@ function showPromotionUI(pawnColor) {
 
 /**
  * Handles the selection of a promotion piece.
+ * @param {string} selectedType The type of piece chosen for promotion (e.g., 'queen').
+ * @param {string} pawnColor The color of the pawn being promoted.
  */
 function selectPromotionPiece(selectedType, pawnColor) {
     promotionOverlay.classList.remove('active');
@@ -958,7 +961,6 @@ function getBestMove(fen, callback) {
  */
 function getEvaluation(fen, callback) {
     if (!stockfishWorker) {
-        console.log("Creating new worker with path:", "./lib/stockfish-nnue-16.js");
         stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
         stockfishWorker.onmessage = function (event) {
             let message = event.data;
