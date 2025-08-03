@@ -145,8 +145,8 @@ function newGame() {
         </div>
     `;
 
-    // Reset all global state variables
     chessBoard.innerHTML = initialBoardHTML;
+    // Reset all global state variables
     board = [];
     legalSquares = [];
     isWhiteTurn = true;
@@ -167,7 +167,7 @@ function newGame() {
     initializeBoardState();
     setupPieces();
     renderBoard();
-    finalizeMove();
+    finalizeMove(false);
 }
 
 /**
@@ -958,6 +958,7 @@ function getBestMove(fen, callback) {
  */
 function getEvaluation(fen, callback) {
     if (!stockfishWorker) {
+        console.log("Creating new worker with path:", "./lib/stockfish-nnue-16.js");
         stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
         stockfishWorker.onmessage = function (event) {
             let message = event.data;
