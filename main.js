@@ -49,12 +49,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
         selectedLevel = this.value;
     });
 
-    // Start the game with White to move
-    getEvaluation(generateFEN(board), displayEvaluation);
-    const isEngineTurn = (isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn);
-    if (isEngineTurn) {
-        getBestMove(generateFEN(board), playBestMove);
-    }
+    finalizeMove();
 });
 
 /**
@@ -135,7 +130,8 @@ function newGame() {
         <div class="square white" id="h1"><div class="coordinate file blackText">h</div><div class="coordinate rank blackText">1</div><div class="piece rook" color="white"><img src="white-Rook.png" alt="White Rook"></div></div>
     `;
 
-    chessBoard.innerHTML = initialBoard;
+    chessBoard.innerHTML = initialBoardHTML;
+    // Reset all global state variables
     board = [];
     legalSquares = [];
     isWhiteTurn = true;
@@ -151,11 +147,12 @@ function newGame() {
     hasBlackKingsideRookMoved = false;
     hasBlackQueensideRookMoved = false;
 
+    // Reset UI and listeners
     setupBoardSquares();
     initializeBoardState();
     setupPieces();
     renderBoard();
-    finalizeMove(false); // Do not toggle turn after new game
+    finalizeMove();
 }
 
 /**
@@ -854,10 +851,8 @@ function selectPromotionPiece(selectedType, pawnColor) {
 /**
  * Finalizes a move: toggles turn, clears legal squares, checks game status, and updates evaluation.
  */
-function finalizeMove(toggleTurn = true) {
-    if (toggleTurn) {
-      isWhiteTurn = !isWhiteTurn;
-    }
+function finalizeMove() {
+    isWhiteTurn = !isWhiteTurn;
     legalSquares.length = 0;
     checkGameStatus();
     const currentFEN = generateFEN(board);
@@ -997,7 +992,6 @@ function getEvaluation(fen, callback) {
     stockfishWorker.postMessage("go depth 10");
 }
 
-let evaluationElements = null;
 function initializeEvaluationElements() {
     evaluationElements = {
         blackBar: document.querySelector(".blackBar"),
