@@ -25,6 +25,8 @@ let scoreStrings = [];
 
 // DOM element references
 const chessBoard = document.querySelector('.chessBoard');
+const boardSquares = document.getElementsByClassName('square');
+const pieces = document.getElementsByClassName('piece');
 const newGameBtn = document.getElementById("newGame");
 const switchSidesBtn = document.getElementById("switchSides");
 const levelSelect = document.getElementById("level");
@@ -47,12 +49,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
         selectedLevel = this.value;
     });
 
-    // Start the game with White to move
-    getEvaluation(generateFEN(board), displayEvaluation);
-    const isEngineTurn = (isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn);
-    if (isEngineTurn) {
-        getBestMove(generateFEN(board), playBestMove);
-    }
+    finalizeMove();
 });
 
 /**
@@ -128,22 +125,12 @@ function newGame() {
         <div class="square black" id="c1"><div class="coordinate file whiteText">c</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div></div>
         <div class="square white" id="d1"><div class="coordinate file blackText">d</div><div class="piece queen" color="white"><img src="white-Queen.png" alt="White Queen"></div></div>
         <div class="square black" id="e1"><div class="coordinate file whiteText">e</div><div class="piece king" color="white"><img src="white-King.png" alt="White King"></div></div>
-        <div class="square white" id="f1">
-            <div class="coordinate file blackText">f</div>
-            <div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div>
-        </div>
-        <div class="square black" id="g1">
-            <div class="coordinate file whiteText">g</div>
-            <div class="piece knight" color="white"><img src="white-Knight.png" alt="White Knight"></div>
-        </div>
-        <div class="square white" id="h1">
-            <div class="coordinate file blackText">h</div>
-            <div class="coordinate rank blackText">1</div>
-            <div class="piece rook" color="white"><img src="white-Rook.png" alt="White Rook"></div>
-        </div>
+        <div class="square white" id="f1"><div class="coordinate file blackText">f</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div></div>
+        <div class="square black" id="g1"><div class="coordinate file whiteText">g</div><div class="piece knight" color="white"><img src="white-Knight.png" alt="White Knight"></div></div>
+        <div class="square white" id="h1"><div class="coordinate file blackText">h</div><div class="coordinate rank blackText">1</div><div class="piece rook" color="white"><img src="white-Rook.png" alt="White Rook"></div></div>
     `;
 
-    chessBoard.innerHTML = initialBoard;
+    chessBoard.innerHTML = initialBoardHTML;
     // Reset all global state variables
     board = [];
     legalSquares = [];
@@ -753,7 +740,6 @@ function getLegalMovesForPiece(startSquareId, pieceElement) {
 
 /**
  * Checks the current game status (check, checkmate, stalemate).
- * Displays messages to the user.
  */
 function checkGameStatus() {
     const currentPlayerColor = isWhiteTurn ? 'white' : 'black';
@@ -791,7 +777,6 @@ function checkGameStatus() {
 
 /**
  * Displays a message box on the screen.
- * @param {string} msg The message to display.
  */
 function showMessage(msg) {
     let messageBox = document.getElementById('message-box');
@@ -830,7 +815,6 @@ function clearMessage() {
 
 /**
  * Shows the pawn promotion UI.
- * @param {string} pawnColor The color of the pawn being promoted.
  */
 function showPromotionUI(pawnColor) {
     promotionChoices.innerHTML = '';
@@ -1008,7 +992,6 @@ function getEvaluation(fen, callback) {
     stockfishWorker.postMessage("go depth 10");
 }
 
-let evaluationElements = null;
 function initializeEvaluationElements() {
     evaluationElements = {
         blackBar: document.querySelector(".blackBar"),
