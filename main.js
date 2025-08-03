@@ -41,15 +41,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     initializeEvaluationElements();
     setupPieces();
     renderBoard();
-
-    // Event Listeners for buttons
-    newGameBtn.addEventListener("click", newGame);
-    switchSidesBtn.addEventListener("click", flipBoard);
-    levelSelect.addEventListener("change", function(){
-        selectedLevel = this.value;
-    });
-
-    finalizeMove();
+    // Removed finalizeMove() to prevent engine move at start
 });
 
 /**
@@ -152,7 +144,7 @@ function newGame() {
     initializeBoardState();
     setupPieces();
     renderBoard();
-    finalizeMove();
+    // Removed finalizeMove() to prevent engine move at start
 }
 
 /**
@@ -386,7 +378,6 @@ function drop(ev) {
 /**
  * Helper function to perform a move based on a move string (e.g., 'e2e4').
  * This is used for the AI's move.
- * @param {string} bestMove The move string from the engine.
  */
 function playBestMove(bestMove) {
     if (!bestMove || bestMove === '(none)') {
@@ -409,9 +400,6 @@ function playBestMove(bestMove) {
 /**
  * Performs the actual move on the internal board state and updates the DOM.
  * Centralized function used by both human and AI moves.
- * @param {string} startingSquareId The starting square ID (e.g., "e2").
- * @param {string} destinationSquareId The destination square ID (e.g., "e4").
- * @param {string} promotedTo The type of piece to promote to, if any.
  */
 function performMove(startingSquareId, destinationSquareId, promotedTo = "") {
     const [fromRow, fromCol] = squareIdToCoords(startingSquareId);
