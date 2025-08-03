@@ -130,12 +130,23 @@ function newGame() {
         <div class="square black" id="c1"><div class="coordinate file whiteText">c</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div></div>
         <div class="square white" id="d1"><div class="coordinate file blackText">d</div><div class="piece queen" color="white"><img src="white-Queen.png" alt="White Queen"></div></div>
         <div class="square black" id="e1"><div class="coordinate file whiteText">e</div><div class="piece king" color="white"><img src="white-King.png" alt="White King"></div></div>
-        <div class="square white" id="f1"><div class="coordinate file blackText">f</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div></div>
-        <div class="square black" id="g1"><div class="coordinate file whiteText">g</div><div class="piece knight" color="white"><img src="white-Knight.png" alt="White Knight"></div></div>
-        <div class="square white" id="h1"><div class="coordinate file blackText">h</div><div class="coordinate rank blackText">1</div><div class="piece rook" color="white"><img src="white-Rook.png" alt="White Rook"></div></div>
+        <div class="square white" id="f1">
+            <div class="coordinate file blackText">f</div>
+            <div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div>
+        </div>
+        <div class="square black" id="g1">
+            <div class="coordinate file whiteText">g</div>
+            <div class="piece knight" color="white"><img src="white-Knight.png" alt="White Knight"></div>
+        </div>
+        <div class="square white" id="h1">
+            <div class="coordinate file blackText">h</div>
+            <div class="coordinate rank blackText">1</div>
+            <div class="piece rook" color="white"><img src="white-Rook.png" alt="White Rook"></div>
+        </div>
     `;
 
-    chessBoard.innerHTML = initialBoard;
+    // Reset all global state variables
+    chessBoard.innerHTML = initialBoardHTML;
     board = [];
     legalSquares = [];
     isWhiteTurn = true;
@@ -151,11 +162,12 @@ function newGame() {
     hasBlackKingsideRookMoved = false;
     hasBlackQueensideRookMoved = false;
 
+    // Reset UI and listeners
     setupBoardSquares();
     initializeBoardState();
     setupPieces();
     renderBoard();
-    finalizeMove(false); // Do not toggle turn after new game
+    finalizeMove();
 }
 
 /**
@@ -854,10 +866,8 @@ function selectPromotionPiece(selectedType, pawnColor) {
 /**
  * Finalizes a move: toggles turn, clears legal squares, checks game status, and updates evaluation.
  */
-function finalizeMove(toggleTurn = true) {
-    if (toggleTurn) {
-      isWhiteTurn = !isWhiteTurn;
-    }
+function finalizeMove() {
+    isWhiteTurn = !isWhiteTurn;
     legalSquares.length = 0;
     checkGameStatus();
     const currentFEN = generateFEN(board);
