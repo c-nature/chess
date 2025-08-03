@@ -7,7 +7,7 @@ let selectedSquare = null;
 let selectedPiece = null;
 let pawnPromotionTargetSquareId = null;
 let isEngineWhite = false;
-let selectedLevel = 10;
+let selectedLevel = 10; // Default to max level
 
 // Castling flags
 let hasWhiteKingMoved = false;
@@ -44,13 +44,27 @@ document.addEventListener('DOMContentLoaded', (event) => {
     // Add event listeners for buttons
     newGameBtn.addEventListener('click', newGame);
     switchSidesBtn.addEventListener('click', flipBoard);
+    levelSelect.addEventListener('change', updateLevel);
+    updateLevel(); // Set initial skill level
 });
+
+/**
+ * Updates the engine's skill level based on the selected level.
+ */
+function updateLevel() {
+    selectedLevel = parseInt(levelSelect.value, 10) || 10;
+    const skillLevel = Math.round((selectedLevel - 1) * 2); // Map 1-10 to 0-20 skill levels
+    const depth = Math.max(1, Math.min(20, selectedLevel * 2)); // Scale depth from 2 to 20
+    if (stockfishWorker) {
+        stockfishWorker.postMessage("setoption name Skill Level value " + skillLevel);
+        stockfishWorker.postMessage("setoption name Contempt value 0"); // Neutral contempt for fairness
+    }
+}
 
 /**
  * Initializes all the necessary global and state variables for a new game.
  */
 function newGame() {
-    // This is the correct initial HTML string for the board
     const initialBoardHTML = `
         <div class="square white" id="a8">
             <div class="coordinate rank blackText">8</div>
@@ -125,7 +139,6 @@ function newGame() {
     `;
 
     chessBoard.innerHTML = initialBoardHTML;
-    // Reset all global state variables
     board = [];
     legalSquares = [];
     isWhiteTurn = true;
@@ -141,11 +154,11 @@ function newGame() {
     hasBlackKingsideRookMoved = false;
     hasBlackQueensideRookMoved = false;
 
-    // Reset UI and listeners
     setupBoardSquares();
     initializeBoardState();
     setupPieces();
     renderBoard();
+    updateLevel(); // Reapply the current skill level
 }
 
 /**
@@ -171,7 +184,6 @@ function setupBoardSquares() {
         allBoardSquares[i].addEventListener('drop', drop);
         allBoardSquares[i].addEventListener('click', selectSquare);
 
-        // Calculate row and column for ID
         let row = 8 - Math.floor(i / 8);
         let column = String.fromCharCode(97 + (i % 8));
         allBoardSquares[i].id = column + row;
@@ -248,7 +260,6 @@ function renderBoard() {
     const chessBoard = document.querySelector('.chessBoard');
     const existingCoordinates = chessBoard.querySelectorAll('.coordinate');
     
-    // Create an object to hold coordinates to re-append later
     const coordinatesMap = {};
     existingCoordinates.forEach(coord => {
       const square = coord.parentElement;
@@ -264,12 +275,10 @@ function renderBoard() {
             const squareId = coordsToSquareId(r, c);
             const squareElement = document.getElementById(squareId);
             
-            // Clear all existing children (pieces and coordinates)
             while (squareElement.firstChild) {
                 squareElement.removeChild(squareElement.firstChild);
             }
 
-            // Restore coordinates
             if (coordinatesMap[squareId]) {
                 coordinatesMap[squareId].forEach(coordHTML => {
                     squareElement.insertAdjacentHTML('beforeend', coordHTML);
@@ -306,19 +315,16 @@ function selectSquare(event) {
     const clickedSquareId = clickedSquare.id;
 
     if (selectedPiece) {
-        // A piece is already selected, try to move it
         const originalSquareId = selectedPiece.parentElement.id;
         if (legalSquares.includes(clickedSquareId)) {
             performMove(originalSquareId, clickedSquareId);
             selectedPiece = null;
             legalSquares.length = 0;
         } else {
-            // Deselect piece if a non-legal square is clicked
             selectedPiece = null;
             legalSquares.length = 0;
         }
     } else if (pieceOnSquare) {
-        // No piece selected, try to select one
         const pieceColor = pieceOnSquare.getAttribute("color");
         const isPlayerTurn = (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
         if (isPlayerTurn && ((isWhiteTurn && pieceColor === "white") || (!isWhiteTurn && pieceColor === "black"))) {
@@ -356,7 +362,6 @@ function drag(ev) {
 
 /**
  * Handles the drop of a piece onto a square.
- * This is the primary human player move function.
  */
 function drop(ev) {
     ev.preventDefault();
@@ -378,7 +383,6 @@ function drop(ev) {
 
 /**
  * Helper function to perform a move based on a move string (e.g., 'e2e4').
- * This is used for the AI's move.
  */
 function playBestMove(bestMove) {
     if (!bestMove || bestMove === '(none)') {
@@ -390,9 +394,7 @@ function playBestMove(bestMove) {
     let promotedTo = "";
     if (bestMove.length === 5) {
         promotedTo = bestMove.substring(4, 5);
-        let pieceMap = {
-            "q": "queen", "r": "rook", "b": "bishop", "n": "knight"
-        };
+        let pieceMap = { "q": "queen", "r": "rook", "b": "bishop", "n": "knight" };
         promotedTo = pieceMap[promotedTo];
     }
     performMove(startingSquareId, destinationSquareId, promotedTo);
@@ -400,7 +402,6 @@ function playBestMove(bestMove) {
 
 /**
  * Performs the actual move on the internal board state and updates the DOM.
- * Centralized function used by both human and AI moves.
  */
 function performMove(startingSquareId, destinationSquareId, promotedTo = "") {
     const [fromRow, fromCol] = squareIdToCoords(startingSquareId);
@@ -413,16 +414,10 @@ function performMove(startingSquareId, destinationSquareId, promotedTo = "") {
     const pieceColor = piece.color;
     const prevEnPassantTargetSquare = enPassantTargetSquare;
 
-    // Handle Castling
     if (pieceType === 'king' && Math.abs(fromCol - toCol) === 2) {
         let rookFromCol, rookToCol;
-        if (toCol === 6) {
-            rookFromCol = 7;
-            rookToCol = 5;
-        } else if (toCol === 2) {
-            rookFromCol = 0;
-            rookToCol = 3;
-        }
+        if (toCol === 6) { rookFromCol = 7; rookToCol = 5; }
+        else if (toCol === 2) { rookFromCol = 0; rookToCol = 3; }
         board[toRow][toCol] = board[fromRow][fromCol];
         board[fromRow][fromCol] = null;
         board[toRow][rookToCol] = board[toRow][rookFromCol];
@@ -437,7 +432,6 @@ function performMove(startingSquareId, destinationSquareId, promotedTo = "") {
             else if (rookFromCol === 0) hasBlackQueensideRookMoved = true;
         }
     } 
-    // Handle En Passant
     else if (pieceType === 'pawn' && destinationSquareId === prevEnPassantTargetSquare) {
         const capturedPawnRow = fromRow;
         const capturedPawnCol = toCol;
@@ -445,12 +439,10 @@ function performMove(startingSquareId, destinationSquareId, promotedTo = "") {
         board[toRow][toCol] = board[fromRow][fromCol];
         board[fromRow][fromCol] = null;
     } 
-    // Handle Promotion
     else if (pieceType === 'pawn' && (toRow === 0 || toRow === 7) && promotedTo !== "") {
         board[toRow][toCol] = { type: promotedTo, color: pieceColor };
         board[fromRow][fromCol] = null;
     }
-    // Normal Move
     else {
         board[toRow][toCol] = board[fromRow][fromCol];
         board[fromRow][fromCol] = null;
@@ -468,7 +460,6 @@ function performMove(startingSquareId, destinationSquareId, promotedTo = "") {
         }
     }
 
-    // Update en passant target if pawn moved two squares
     if (pieceType === 'pawn' && Math.abs(fromRow - toRow) === 2) {
         enPassantTargetSquare = coordsToSquareId(fromRow + (toRow - fromRow) / 2, toCol);
     } else {
@@ -847,7 +838,6 @@ function finalizeMove() {
     const currentFEN = generateFEN(board);
     getEvaluation(currentFEN, displayEvaluation);
 
-    // AI move check
     const isEngineTurn = (isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn);
     if (isEngineTurn) {
         getBestMove(currentFEN, playBestMove);
@@ -910,12 +900,25 @@ function generateFEN(boardState) {
  */
 function getBestMove(fen, callback) {
     if (!stockfishWorker) {
-        console.error("Stockfish worker is not initialized.");
-        return;
+        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
+        stockfishWorker.onmessage = function (event) {
+            let message = event.data;
+            if (message.startsWith("bestmove")) {
+                const bestMove = message.split(" ")[1];
+                stockfishWorker.removeEventListener('message', listener);
+                callback(bestMove);
+            }
+        };
+        stockfishWorker.onerror = function(error) {
+            console.error("Stockfish Worker Error:", error);
+        };
+        stockfishWorker.postMessage("uci");
+        stockfishWorker.postMessage("isready");
+        stockfishWorker.postMessage("setoption name multipv value 3");
     }
-    const aiDepth = selectedLevel;
     stockfishWorker.postMessage("position fen " + fen);
-    stockfishWorker.postMessage(`go depth ${aiDepth}`);
+    const depth = Math.max(1, Math.min(20, selectedLevel * 2)); // Dynamic depth based on level
+    stockfishWorker.postMessage(`go depth ${depth}`);
     const listener = function(event) {
         const message = event.data;
         if (message.startsWith("bestmove")) {
@@ -978,7 +981,7 @@ function getEvaluation(fen, callback) {
     }
     stockfishWorker.postMessage("ucinewgame");
     stockfishWorker.postMessage("position fen " + fen);
-    stockfishWorker.postMessage("go depth 10");
+    stockfishWorker.postMessage("go depth 10"); // Fixed depth for evaluation
 }
 
 function initializeEvaluationElements() {
