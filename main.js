@@ -32,7 +32,7 @@ const switchSidesBtn = document.getElementById("switchSides");
 const levelSelect = document.getElementById("level");
 const promotionOverlay = document.getElementById('promotion-overlay');
 const promotionChoices = document.querySelector('.promotion-choices');
-let evaluationElements = null; // Corrected: Removed duplicate declaration
+let evaluationElements = null;
 
 // Ensure DOM is fully loaded before setting up event listeners
 document.addEventListener('DOMContentLoaded', (event) => {
@@ -130,23 +130,12 @@ function newGame() {
         <div class="square black" id="c1"><div class="coordinate file whiteText">c</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div></div>
         <div class="square white" id="d1"><div class="coordinate file blackText">d</div><div class="piece queen" color="white"><img src="white-Queen.png" alt="White Queen"></div></div>
         <div class="square black" id="e1"><div class="coordinate file whiteText">e</div><div class="piece king" color="white"><img src="white-King.png" alt="White King"></div></div>
-        <div class="square white" id="f1">
-            <div class="coordinate file blackText">f</div>
-            <div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div>
-        </div>
-        <div class="square black" id="g1">
-            <div class="coordinate file whiteText">g</div>
-            <div class="piece knight" color="white"><img src="white-Knight.png" alt="White Knight"></div>
-        </div>
-        <div class="square white" id="h1">
-            <div class="coordinate file blackText">h</div>
-            <div class="coordinate rank blackText">1</div>
-            <div class="piece rook" color="white"><img src="white-Rook.png" alt="White Rook"></div>
-        </div>
+        <div class="square white" id="f1"><div class="coordinate file blackText">f</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div></div>
+        <div class="square black" id="g1"><div class="coordinate file whiteText">g</div><div class="piece knight" color="white"><img src="white-Knight.png" alt="White Knight"></div></div>
+        <div class="square white" id="h1"><div class="coordinate file blackText">h</div><div class="coordinate rank blackText">1</div><div class="piece rook" color="white"><img src="white-Rook.png" alt="White Rook"></div></div>
     `;
 
-    chessBoard.innerHTML = initialBoardHTML;
-    // Reset all global state variables
+    chessBoard.innerHTML = initialBoard;
     board = [];
     legalSquares = [];
     isWhiteTurn = true;
@@ -162,12 +151,11 @@ function newGame() {
     hasBlackKingsideRookMoved = false;
     hasBlackQueensideRookMoved = false;
 
-    // Reset UI and listeners
     setupBoardSquares();
     initializeBoardState();
     setupPieces();
     renderBoard();
-    finalizeMove(false);
+    finalizeMove(false); // Do not toggle turn after new game
 }
 
 /**
@@ -680,7 +668,9 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
             break;
         case 'king':
             const kingMoves = [
-                [-1, -1], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 1], [1, 0]
+                [-1, -1], [-1, 0], [-1, 1],
+                [0, -1], [0, 1],
+                [1, -1], [1, 0], [1, 1]
             ];
             kingMoves.forEach(([dr, dc]) => {
                 const newRow = startRow + dr;
@@ -753,7 +743,6 @@ function getLegalMovesForPiece(startSquareId, pieceElement) {
 
 /**
  * Checks the current game status (check, checkmate, stalemate).
- * Displays messages to the user.
  */
 function checkGameStatus() {
     const currentPlayerColor = isWhiteTurn ? 'white' : 'black';
@@ -791,7 +780,6 @@ function checkGameStatus() {
 
 /**
  * Displays a message box on the screen.
- * @param {string} msg The message to display.
  */
 function showMessage(msg) {
     let messageBox = document.getElementById('message-box');
@@ -830,7 +818,6 @@ function clearMessage() {
 
 /**
  * Shows the pawn promotion UI.
- * @param {string} pawnColor The color of the pawn being promoted.
  */
 function showPromotionUI(pawnColor) {
     promotionChoices.innerHTML = '';
@@ -851,8 +838,6 @@ function showPromotionUI(pawnColor) {
 
 /**
  * Handles the selection of a promotion piece.
- * @param {string} selectedType The type of piece chosen for promotion (e.g., 'queen').
- * @param {string} pawnColor The color of the pawn being promoted.
  */
 function selectPromotionPiece(selectedType, pawnColor) {
     promotionOverlay.classList.remove('active');
@@ -869,8 +854,10 @@ function selectPromotionPiece(selectedType, pawnColor) {
 /**
  * Finalizes a move: toggles turn, clears legal squares, checks game status, and updates evaluation.
  */
-function finalizeMove() {
-    isWhiteTurn = !isWhiteTurn;
+function finalizeMove(toggleTurn = true) {
+    if (toggleTurn) {
+      isWhiteTurn = !isWhiteTurn;
+    }
     legalSquares.length = 0;
     checkGameStatus();
     const currentFEN = generateFEN(board);
