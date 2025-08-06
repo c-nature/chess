@@ -545,8 +545,8 @@ function updateEvaluationBar() {
             whiteFill.style.backgroundColor = '#f0d9b5'; // Default white color
             blackFill.style.backgroundColor = '#d9534f'; // Red for black's advantage
         } else { // Close game or slight advantage
-            whiteFill.style.backgroundColor = '#f0d9b5'; // Default white
-            blackFill.style.backgroundColor = '#b58863'; // Default black
+            whiteFill.style.backgroundColor = '#ffffffff'; // Default white
+            blackFill.style.backgroundColor = '#000000ff'; // Default black
         }
     }
 }
