@@ -56,6 +56,32 @@ window.main = {
         }
     }
 };
+function setGameMode(mode) {
+    gameMode = mode;
+    gameModeSelectionDiv.style.display = 'none'; // Hide mode selection buttons
+
+    if (gameMode === 'singlePlayer') {
+        topContainer.style.display = 'flex'; // Show game controls and evaluation
+        evaluationContainer.style.display = 'flex';
+        joinDiv.style.display = 'none'; // Hide multiplayer join UI
+        gamePlayerInfo.style.display = 'none';
+        playerInfo.style.display = 'none';
+        gameContainer.style.display = 'flex'; // Show chessboard
+        myColor = 'white'; // Player is always white in single player
+        opponentColor = 'black'; // AI is always black
+        initializeStockfish(); // Initialize Stockfish when single player is selected
+        initializeEvaluationElements(); // Initialize evaluation elements
+        newGame(); // Start a new single player game
+    } else if (gameMode === 'multiplayer') {
+        topContainer.style.display = 'none'; // Hide single player controls
+        evaluationContainer.style.display = 'none';
+        joinDiv.style.display = 'flex'; // Show multiplayer join UI
+        gamePlayerInfo.style.display = 'flex';
+        playerInfo.style.display = 'flex';
+        gameContainer.style.display = 'none'; // Hide chessboard initially
+        // Multiplayer color will be assigned by the server via WebSocket
+    }
+}
 
 document.addEventListener('DOMContentLoaded', (event) => {
     singlePlayerBtn.addEventListener('click', () => setGameMode('singlePlayer'));
@@ -96,6 +122,13 @@ function initializeStockfish() {
         stockfishWorker.postMessage("isready");
         stockfishWorker.postMessage("setoption name multipv value 3"); // Request top 3 lines for potential display
     }
+}
+function initializeEvaluationElements() {
+    evaluationElements = {
+        whiteFill: document.querySelector('.eval-fill-white'),
+        blackFill: document.querySelector('.eval-fill-black'),
+        evaluationText: document.querySelector('.evaluation-text')
+    };
 }
 
 /**
@@ -535,7 +568,7 @@ function checkGameStatus() {
  * Updates the visual evaluation bar and text based on the current evaluation score.
  */
 function updateEvaluationBar() {
-    if (evaluationContainer.style.display !== 'none' && whiteFill && blackFill) {
+    if (evaluationContainer.style.display !== 'none' && evaluationElements.whiteFill && evaluationElements.blackFill && evaluationElements.evaluationText) {
         // Clamp evaluation between -10 and 10 for a reasonable visual range
         const clampedEvaluation = Math.max(-10, Math.min(10, evaluation));
 
@@ -551,16 +584,16 @@ function updateEvaluationBar() {
         if (myColor === 'black') {
             displayEvaluation = -evaluation; // Invert evaluation if player is black
         }
-        evaluationText.textContent = `Evaluation: ${displayEvaluation.toFixed(2)}`;
+        evaluationElements.evaluationText.textContent = `Evaluation: ${displayEvaluation.toFixed(2)}`;
 
         // Apply heights: white fill from top, black fill from bottom
-        whiteFill.style.height = `${whiteHeightPercentage}%`;
-        whiteFill.style.top = '0'; // Anchor white at the top
-        blackFill.style.height = `${blackHeightPercentage}%`;
-        blackFill.style.bottom = '0'; // Anchor black at the bottom
+        evaluationElements.whiteFill.style.height = `${whiteHeightPercentage}%`;
+        evaluationElements.whiteFill.style.top = '0'; // Anchor white at the top
+        evaluationElements.blackFill.style.height = `${blackHeightPercentage}%`;
+        evaluationElements.blackFill.style.bottom = '0'; // Anchor black at the bottom
 
         // Set consistent black and white colors
-        whiteFill.style.backgroundColor = 'white';
-        blackFill.style.backgroundColor = 'black';
+        evaluationElements.whiteFill.style.backgroundColor = 'white';
+        evaluationElements.blackFill.style.backgroundColor = 'black';
     }
 }
