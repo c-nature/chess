@@ -251,6 +251,26 @@ function resignGame() {
     showAlert(`${myColor} resigned. ${opponentColor} wins!`);
     allowMovement = false; // Disable further moves
 }
+function handleStockfishMessage(event) {
+    const message = event.data;
+    if (message.startsWith("bestmove")) {
+        const move = message.split(" ")[1];
+        if (move) {
+            const startSquare = move.substring(0, 2);
+            const endSquare = move.substring(2, 4);
+            const promotedTo = move.length > 4 ? move.substring(4, 5) : null;
+            makeMove(startSquare, endSquare, promotedTo);
+        }
+    } else if (message.startsWith("info")) {
+        const infoParts = message.split(" ");
+        const scoreIndex = infoParts.indexOf("score");
+        if (scoreIndex !== -1 && infoParts[scoreIndex + 1] === "cp") {
+            evaluation = parseFloat(infoParts[scoreIndex + 2]) / 100; // Convert centipawns to pawns
+            console.log("Raw Evaluation (pawns):", evaluation); // Debug log
+            updateEvaluationBar();
+        }
+    }
+}
 
 /**
  * Chessboard.js onDrop handler for drag-and-drop moves.
@@ -522,9 +542,9 @@ function updateEvaluationBar() {
         // Normalize evaluation to a 0-1 scale, where 0 is -10 (black winning) and 1 is +10 (white winning)
         const normalizedEval = (clampedEvaluation + 10) / 20;
 
-        // Calculate heights for white and black fills
-        const whiteHeightPercentage = normalizedEval * 100;
-        const blackHeightPercentage = (1 - normalizedEval) * 100;
+        // Calculate heights: white fill grows from top (white advantage), black from bottom (black advantage)
+        const whiteHeightPercentage = normalizedEval * 100; // 0% at -10, 100% at +10 (white advantage)
+        const blackHeightPercentage = (1 - normalizedEval) * 100; // 100% at -10, 0% at +10 (black advantage)
 
         // Adjust displayed evaluation based on player's color for their perspective
         let displayEvaluation = evaluation;
@@ -533,20 +553,14 @@ function updateEvaluationBar() {
         }
         evaluationText.textContent = `Evaluation: ${displayEvaluation.toFixed(2)}`;
 
-        // Apply calculated heights to the fill elements
+        // Apply heights: white fill from top, black fill from bottom
         whiteFill.style.height = `${whiteHeightPercentage}%`;
+        whiteFill.style.top = '0'; // Anchor white at the top
         blackFill.style.height = `${blackHeightPercentage}%`;
+        blackFill.style.bottom = '0'; // Anchor black at the bottom
 
-        // Optional: Change color based on who has a significant advantage
-        if (clampedEvaluation > 2) { // White has a significant advantage
-            whiteFill.style.backgroundColor = '#fffefeff'; // Green for white's advantage
-            blackFill.style.backgroundColor = '#000000ff'; // Default black color
-        } else if (clampedEvaluation < -2) { // Black has a significant advantage
-            whiteFill.style.backgroundColor = '#ffffffff'; // Default white color
-            blackFill.style.backgroundColor = '#000000ff'; // Red for black's advantage
-        } else { // Close game or slight advantage
-            whiteFill.style.backgroundColor = '#ffffffff'; // Default white
-            blackFill.style.backgroundColor = '#000000ff'; // Default black
-        }
+        // Set consistent black and white colors
+        whiteFill.style.backgroundColor = 'white';
+        blackFill.style.backgroundColor = 'black';
     }
 }
