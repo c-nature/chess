@@ -46,7 +46,8 @@ window.main = {
             newGame(); // Call the global newGame function
         } else if (data.type === "move") {
             // Multiplayer move received
-            makeMove(data.startSquare, data.endSquare, data.promotedTo); // Call the global makeMove function
+            // Note: makeMove now calls handleMoveMade internally
+            makeMove(data.startSquare, data.endSquare, data.promotedTo);
         } else if (data.type === "resign") {
             showAlert(`${data.winner} wins! ${myColor === data.winner ? 'You' : 'Opponent'} resigned.`); // Call the global showAlert function
             allowMovement = false;
@@ -110,7 +111,7 @@ function handleStockfishMessage(event) {
             const startSquare = move.substring(0, 2);
             const endSquare = move.substring(2, 4);
             const promotedTo = move.length > 4 ? move.substring(4, 5) : null;
-            // AI makes its move
+            // AI makes its move by calling the main makeMove function
             makeMove(startSquare, endSquare, promotedTo);
         }
     } else if (message.startsWith("info")) {
@@ -284,20 +285,8 @@ function onDrop(source, target) {
         return; // Do not make the move yet, wait for promotion choice
     }
 
-    // Attempt to make the move (defaulting to queen for non-promotion moves)
-    const move = game.move({
-        from: source,
-        to: target,
-        promotion: 'q'
-    });
-
-    // If the move is illegal, snap the piece back
-    if (move === null) {
-        return 'snapback';
-    }
-
-    // If move is valid, update board and handle game state
-    handleMoveMade(move);
+    // Call makeMove to process the move and handle game state updates
+    makeMove(source, target, 'q'); // Default to queen for non-promotion moves
 }
 
 /**
@@ -324,7 +313,7 @@ function makeMove(startSquare, endSquare, promotedTo) {
     if (!allowMovement && gameMode === 'singlePlayer' && game.turn() === myColor.charAt(0)) {
         // If it's single player and AI's turn, and player tries to move, prevent it.
         // This scenario is mainly for drag-and-drop; click-to-move is already guarded.
-        return 'snapback';
+        return 'snapback'; // Return snapback to revert the drag if player tries to move on AI turn
     }
 
     const move = game.move({
@@ -340,6 +329,86 @@ function makeMove(startSquare, endSquare, promotedTo) {
         return; // Do not proceed with an illegal move
     }
 
+    // Now call handleMoveMade to update board, check status, and trigger AI if needed
+    handleMoveMade(move);
+}
+
+
+/**
+ * Handles click events on chessboard squares for click-to-move functionality.
+ * Selects pieces, shows legal moves, and attempts to make moves.
+ * @param {MouseEvent} event - The click event.
+ */
+function handleSquareClick(event) {
+    // Prevent interaction if movement is not allowed or it's not the player's turn
+    if (!allowMovement || game.turn() !== myColor.charAt(0)) return;
+
+    const squareElement = event.target.closest('.square-55d63'); // Use chessboard.js square class
+    if (!squareElement) return;
+
+    const square = squareElement.getAttribute('data-square'); // Get square ID from data-square attribute
+    const piece = game.get(square);
+
+    // Clear previous highlights
+    clearHighlights();
+
+    if (selectedSquare === square) {
+        // Clicking the same square again deselects it
+        selectedSquare = null;
+        return;
+    }
+
+    if (selectedSquare) {
+        // A piece is already selected, try to move it to the clicked square
+        const moveAttempt = game.move({
+            from: selectedSquare,
+            to: square,
+            promotion: 'q' // Default to queen for initial move attempt
+        });
+
+        if (moveAttempt) {
+            // If the move is valid, check for promotion
+            if (moveAttempt.promotion && (moveAttempt.color === 'w' && moveAttempt.to[1] === '8' || moveAttempt.color === 'b' && moveAttempt.to[1] === '1')) {
+                promotionDetails = { from: selectedSquare, to: square };
+                promotionOverlay.classList.add('active'); // Show promotion overlay
+                // Update promotion piece images based on the color of the pawn promoting
+                promotionPieces.forEach(p => {
+                    const pieceType = p.getAttribute('data-piece');
+                    p.src = `${moveAttempt.color === 'w' ? 'white' : 'black'}-${pieceType.toUpperCase()}.png`;
+                    p.classList.remove('white-piece', 'black-piece');
+                    p.classList.add(moveAttempt.color === 'w' ? 'white-piece' : 'black-piece');
+                });
+            } else {
+                // If no promotion, process the move using the makeMove function
+                makeMove(selectedSquare, square, moveAttempt.promotion);
+            }
+            selectedSquare = null; // Clear selected square after attempting move
+        } else {
+            // Invalid move, if the clicked square has our piece, select it instead
+            if (piece && piece.color === myColor.charAt(0)) {
+                selectedSquare = square;
+                squareElement.classList.add('selected');
+                highlightLegalMoves(square);
+            } else {
+                selectedSquare = null; // Clicked an empty square or opponent's piece, deselect current
+            }
+        }
+    } else {
+        // No piece selected, try to select the clicked piece
+        if (piece && piece.color === myColor.charAt(0)) { // Check if it's the player's piece
+            selectedSquare = square;
+            squareElement.classList.add('selected'); // Highlight selected square
+            highlightLegalMoves(square); // Show legal moves for the selected piece
+        }
+    }
+}
+
+/**
+ * Central function to apply a move to the game state and update UI.
+ * This function is called by makeMove (after it validates the move).
+ * @param {object} move - The move object returned by game.move().
+ */
+function handleMoveMade(move) {
     board.position(game.fen()); // Update the visual board
     turnColor = game.turn() === 'w' ? 'white' : 'black'; // Update turn based on chess.js
 
@@ -372,75 +441,6 @@ function makeMove(startSquare, endSquare, promotedTo) {
     updateEvaluationBar(); // Update the evaluation display
 }
 
-
-/**
- * Handles click events on chessboard squares for click-to-move functionality.
- * Selects pieces, shows legal moves, and attempts to make moves.
- * @param {MouseEvent} event - The click event.
- */
-function handleSquareClick(event) {
-    // Prevent interaction if movement is not allowed or it's not the player's turn
-    if (!allowMovement || game.turn() !== myColor.charAt(0)) return;
-
-    const squareElement = event.target.closest('.square-55d63'); // Use chessboard.js square class
-    if (!squareElement) return;
-
-    const square = squareElement.getAttribute('data-square'); // Get square ID from data-square attribute
-    const piece = game.get(square);
-
-    // Clear previous highlights
-    clearHighlights();
-
-    if (selectedSquare === square) {
-        // Clicking the same square again deselects it
-        selectedSquare = null;
-        return;
-    }
-
-    if (selectedSquare) {
-        // A piece is already selected, try to move it to the clicked square
-        const move = game.move({
-            from: selectedSquare,
-            to: square,
-            promotion: 'q' // Default to queen for initial move attempt
-        });
-
-        if (move) {
-            // If the move is valid, check for promotion
-            if (move.promotion && (move.color === 'w' && move.to[1] === '8' || move.color === 'b' && move.to[1] === '1')) {
-                promotionDetails = { from: selectedSquare, to: square };
-                promotionOverlay.classList.add('active'); // Show promotion overlay
-                // Update promotion piece images based on the color of the pawn promoting
-                promotionPieces.forEach(p => {
-                    const pieceType = p.getAttribute('data-piece');
-                    p.src = `${move.color === 'w' ? 'white' : 'black'}-${pieceType.toUpperCase()}.png`;
-                    p.classList.remove('white-piece', 'black-piece');
-                    p.classList.add(move.color === 'w' ? 'white-piece' : 'black-piece');
-                });
-            } else {
-                // If no promotion, process the move using the makeMove function
-                makeMove(selectedSquare, square, move.promotion);
-            }
-            selectedSquare = null; // Clear selected square after attempting move
-        } else {
-            // Invalid move, if the clicked square has our piece, select it instead
-            if (piece && piece.color === myColor.charAt(0)) {
-                selectedSquare = square;
-                squareElement.classList.add('selected');
-                highlightLegalMoves(square);
-            } else {
-                selectedSquare = null; // Clicked an empty square or opponent's piece, deselect current
-            }
-        }
-    } else {
-        // No piece selected, try to select the clicked piece
-        if (piece && piece.color === myColor.charAt(0)) { // Check if it's the player's piece
-            selectedSquare = square;
-            squareElement.classList.add('selected'); // Highlight selected square
-            highlightLegalMoves(square); // Show legal moves for the selected piece
-        }
-    }
-}
 
 /**
  * Highlights legal moves on the board for a given square.
