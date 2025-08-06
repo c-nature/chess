@@ -300,34 +300,32 @@ body {
     display: none; /* Hidden by default, shown for single player */
 }
 
-.eval-bar-container {
+.eval-bar-container { /* Updated class name */
     width: 30px;
     height: 200px; /* Fixed height for the bar */
-    background-color: #333; /* Default background, neutral */
+    background-color: #333; /* Default background, representing black's side */
     position: relative;
     border-radius: 5px;
     overflow: hidden;
     box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
 }
 
-.eval-fill-white {
-    background-color: white; /* White side color */
-    width: 100%;
-    position: absolute;
-    top: 0; /* Starts from the top */
-    transition: height 0.3s ease-out;
-    height: 50%; /* Initial state */
-    z-index: 1; /* Ensure white is above black when overlapping */
-}
-
-.eval-fill-black {
-    background-color: black; /* Black side color */
+.eval-fill-white { /* Updated class name */
+    background-color: #ffffff; /* White side color */
     width: 100%;
     position: absolute;
     bottom: 0; /* Starts from the bottom */
     transition: height 0.3s ease-out;
     height: 50%; /* Initial state */
-    z-index: 0; /* Ensure black is below white when overlapping */
+}
+
+.eval-fill-black { /* Updated class name */
+    background-color: #000000; /* Black side color */
+    width: 100%;
+    position: absolute;
+    top: 0; /* Starts from the top */
+    transition: height 0.3s ease-out;
+    height: 50%; /* Initial state */
 }
 
 .evaluation-text { /* Changed from eval-num to match HTML */
