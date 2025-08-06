@@ -331,7 +331,7 @@ body {
 .evaluation-text { /* Changed from eval-num to match HTML */
     font-size: 1.2em;
     font-weight: bold;
-    color: #333;
+    color: #ffffff;
 }
 
 /* Multiplayer Join UI */
