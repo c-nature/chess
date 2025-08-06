@@ -1,178 +1,182 @@
-/* General Layout and Styling */
+/* General Body Styling */
 body {
     display: flex;
-    min-height: 100vh;
+    flex-direction: column; /* Allow content to stack vertically */
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh; /* Use min-height to ensure content fits */
+    background-color: #f3f3f3;
+    font-family: 'Inter', sans-serif; /* Use Inter font */
     margin: 0;
-    background-color: #f0f0f0;
-    font-family: sans-serif;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
+    padding: 20px; /* Add some padding around the content */
+    box-sizing: border-box; /* Include padding in element's total width and height */
 }
 
-/* New top container to hold buttons and board-eval layout */
-.top-container {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 20px;
-}
-
+/* Main Container for the Game */
 .container {
-    display: flex;
-    align-items: flex-start;
-    gap: 20px;
-    width: auto;
-}
-
-.buttonContainer {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    margin: 20px;
-    gap: 10px;
-}
-
-.buttonContainer button, .buttonContainer select {
-    width: 120px;
-    height: 40px;
-    border: none;
-    cursor: pointer;
-    border-radius: 5px;
-    background-color: rgb(87, 64, 64);
-    color: white;
-    font-weight: bold;
-}
-
-.buttonContainer select {
-    background-color: whitesmoke;
-    color: black;
-}
-
-.level-select {
-    display: flex;
+    display: none; /* Hidden by default, shown when game starts */
+    flex-direction: column; /* Stack board and info vertically on small screens */
     align-items: center;
-    gap: 5px;
-    margin-bottom: 5px;
+    margin-bottom: 20px; /* Space below the board */
+    width: 100%; /* Take full width on small screens */
+    max-width: 800px; /* Max width for larger screens */
+    border-radius: 10px;
+    overflow: hidden; /* Ensure rounded corners apply */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* Soft shadow */
 }
 
-/* Chess Board and Pieces */
+/* Chess Board Styling */
 .chessBoard {
-    width: 600px;
-    height: 600px;
-    border: 2px solid #333;
+    width: 100%; /* Fluid width for responsiveness */
+    max-width: 600px; /* Max width for the board */
+    height: auto; /* Maintain aspect ratio */
+    aspect-ratio: 1 / 1; /* Keep it square */
+    margin: 0 auto;
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    grid-template-rows: repeat(8, 1fr);
-    box-sizing: content-box;
-    transition: transform 0.5s ease-in-out;
+    grid-template-columns: repeat(8, 1fr); /* 8 equal columns */
+    grid-template-rows: repeat(8, 1fr); /* 8 equal rows */
+    border-radius: 8px; /* Rounded corners for the board */
+    overflow: hidden;
+    border: 2px solid #333; /* Border for the board */
 }
 
+/* Flipped board for black player */
 .chessBoard.flipped {
     transform: rotate(180deg);
 }
 
+/* Individual Square Styling */
 .square {
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     position: relative;
-    box-sizing: border-box;
-    min-width: 0;
-    min-height: 0;
+    user-select: none; /* Prevent text selection */
 }
 
 .white {
-    background-color: #f0d9b5;
+    background-color: #f0d9b5; /* Light square color */
 }
 
 .black {
-    background-color: #b58863;
+    background-color: #b58863; /* Dark square color */
 }
 
-.piece {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1;
-    cursor: grab;
-    transition: transform 0.5s ease-in-out;
-}
-
-.chessBoard.flipped .piece {
-    transform: rotate(180deg);
-}
-
-.piece img {
-    max-width: 90%;
-    max-height: 90%;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-}
-
+/* Coordinates (a-h, 1-8) */
 .coordinate {
     position: absolute;
+    font-size: 12px;
     font-weight: bold;
-    font-family: Verdana, Geneva, Tahoma, sans-serif;
-    z-index: 1;
+    font-family: 'Verdana', sans-serif;
+    z-index: 2; /* Ensure coordinates are above pieces when flipped */
 }
 
-.coordinate.rank {
+.rank {
     top: 4%;
     right: 4%;
     left: auto;
-    bottom: auto;
-    color: black;
 }
 
-.coordinate.file {
+.file {
     bottom: 4%;
     left: 4%;
     top: auto;
     right: auto;
-    color: black;
 }
 
 .whiteText {
-    color: white;
+    color: #f0d9b5; /* Text color for white squares */
 }
 
 .blackText {
-    color: black;
+    color: #b58863; /* Text color for black squares */
 }
 
-/* Styles for Pawn Promotion UI */
-.promotion-overlay {
+/* Piece Styling */
+.piece {
+    width: 90%; /* Slightly smaller than square to show background */
+    height: 90%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: grab; /* Indicate draggable */
+    transition: transform 0.1s ease-out; /* Smooth transition for flips */
+}
+
+.piece img {
+    max-width: 100%;
+    height: auto;
+    pointer-events: none; /* Prevent image drag interfering with piece drag */
+    transition: transform 0.1s ease-out; /* Smooth transition for flips */
+}
+
+/* Flipped pieces and coordinates */
+.chessBoard.flipped .piece {
+    transform: rotate(180deg);
+}
+.chessBoard.flipped .coordinate {
+    transform: rotate(180deg);
+}
+
+
+/* Highlight for selected piece and legal moves */
+.square.selected {
+    box-shadow: inset 0 0 0 4px rgba(0, 255, 0, 0.7); /* Green border for selected */
+}
+
+.square.legal-move {
+    background-color: rgba(0, 255, 0, 0.3); /* Transparent green for legal moves */
+    box-shadow: inset 0 0 0 2px rgba(0, 255, 0, 0.7);
+}
+
+.square.legal-capture {
+    box-shadow: inset 0 0 0 4px rgba(255, 0, 0, 0.7); /* Red border for captures */
+}
+
+/* Alert Message */
+#alert {
+    position: absolute;
+    color: whitesmoke;
+    width: 80%; /* Responsive width */
+    max-width: 450px; /* Max width for larger screens */
+    height: 80px;
+    text-align: center;
+    display: flex; /* Use flex for centering content */
+    align-items: center;
+    justify-content: center;
+    font-size: 35px;
+    font-weight: bold;
+    z-index: 1000;
+    background: rgba(0, 128, 128, 0.75); /* Teal with transparency */
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    display: none; /* Hidden by default */
+}
+
+/* Promotion Options Overlay */
+#promotion-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
+    background-color: rgba(0, 0, 0, 0.6);
     display: flex;
-    align-items: center;
     justify-content: center;
-    z-index: 100;
-    visibility: hidden;
-    opacity: 0;
-    transition: visibility 0s, opacity 0.3s ease-in-out;
+    align-items: center;
+    z-index: 2000;
+    display: none; /* Hidden by default */
 }
 
-.promotion-overlay.active {
-    visibility: visible;
-    opacity: 1;
+#promotion-overlay.active {
+    display: flex; /* Show when active */
 }
 
 .promotion-choices {
-    background-color: #fff;
+    background-color: white;
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
     display: flex;
     gap: 15px;
     flex-wrap: wrap;
@@ -180,189 +184,368 @@ body {
 }
 
 .promotion-choice {
-    width: 100px;
-    height: 100px;
-    background-color: #eee;
-    border: 2px solid #ccc;
+    width: 80px; /* Fixed size for promotion pieces */
+    height: 80px;
     border-radius: 8px;
+    overflow: hidden;
     cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
     display: flex;
-    align-items: center;
     justify-content: center;
-    transition: background-color 0.2s ease, transform 0.2s ease;
+    align-items: center;
+    background-color: #f0d9b5; /* Match white square color */
 }
 
 .promotion-choice:hover {
-    background-color: #ddd;
-    transform: translateY(-3px);
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    background-color: #539B0C; /* Green on hover */
 }
 
 .promotion-choice img {
-    max-width: 80%;
-    max-height: 80%;
-    object-fit: contain;
+    max-width: 90%;
+    height: auto;
 }
 
-/* Evaluation Bar and Lines */
-#evalBar {
-    background-color: rgb(255,255,255);
-    width: 30px;
-    height: 600px;
+/* Game Mode Selection */
+#game-mode-selection {
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    gap: 20px;
+    padding: 30px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
     align-items: center;
-    position: relative;
-    border-radius: 3px;
-    overflow: hidden;
+    justify-content: center;
 }
 
-#evalBar::after{
-    content: "";
-    display: block;
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    box-shadow: 0 0 5px rgba(0,0,0,0.7) inset;
-    border-radius: 3px;
+#game-mode-selection button {
+    padding: 15px 30px;
+    font-size: 1.2em;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: linear-gradient(145deg, #6a11cb, #2575fc); /* Gradient button */
+    color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+    width: 200px;
 }
 
-#evalBar .blackBar {
-    width: 100%;
-    height: 35%;
-    background-color: #656;
-    transition: height 1s ease-in-out;
-    position: absolute;
-    bottom: 0;
-    border-radius: 3px;
+#game-mode-selection button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
 }
 
-.zero {
-    width: 100%;
-    opacity: 1;
-    border-bottom: 2px solid rgba(214, 79, 0, 0.8);
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    height: auto;
-    z-index: 2;
-}
-
-.evalNum {
-    width: 100%;
-    opacity: 1;
-    position: absolute;
-    top: 5px;
-    height: auto;
-    font-size: 0.8rem;
-    font-weight: bolder;
-    text-align: center;
-    color: #d18232;
-    z-index: 2;
-}
-
-#topLines {
+/* Top Container for AI controls and evaluation */
+.top-container {
     display: flex;
     flex-direction: column;
-    margin: 20px 0;
-    border-radius: 4px;
-    border: 1px solid lightgray;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+    max-width: 600px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
+    display: none; /* Hidden by default, shown for single player */
+}
+
+.buttonContainer {
+    display: flex;
+    flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+    gap: 10px;
+    justify-content: center;
+    width: 100%;
+}
+
+.buttonContainer button,
+.buttonContainer select {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    background-color: rgb(87, 64, 64);
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    min-width: 100px; /* Ensure buttons have a minimum width */
+}
+
+.buttonContainer button:hover,
+.buttonContainer select:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.buttonContainer select {
     background-color: whitesmoke;
-    border-spacing: 0;
-    width: 600px;
+    color: #333;
+    appearance: none; /* Remove default select arrow */
+    background-image: url('data:image/svg+xml;utf8,<svg fill="%23333" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 30px; /* Make space for the custom arrow */
+}
+
+/* Evaluation Bar */
+.evaluation-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 300px; /* Limit width for evaluation section */
+    margin-top: 20px;
+    padding: 15px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
+    display: none; /* Hidden by default, shown for single player */
+}
+
+.eval-bar {
+    width: 30px;
+    height: 200px; /* Fixed height for the bar */
+    background-color: #333; /* Black side */
+    position: relative;
+    border-radius: 5px;
     overflow: hidden;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
 }
 
-#topLines td, #topLines th {
-    border-collapse: collapse;
+.blackBar {
+    background-color: #f0d9b5; /* White side */
+    width: 100%;
+    position: absolute;
+    bottom: 0; /* Starts from the bottom */
+    transition: height 0.3s ease-out;
+}
+
+.eval-num {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #333;
+}
+
+.eval-text {
+    font-size: 0.9em;
+    color: #555;
+    text-align: center;
+}
+
+.eval-lines {
+    width: 100%;
+    font-size: 0.8em;
+    color: #666;
+}
+
+.eval-line {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    padding: 5px;
+    background-color: #f9f9f9;
+    border-radius: 3px;
+}
+
+.eval-line span {
+    flex: 1;
+    text-align: center;
+}
+
+.eval-line span:first-child {
+    font-weight: bold;
+    color: #333;
+}
+
+/* Multiplayer Join UI */
+#join {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 30px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    align-items: center;
+    justify-content: center;
+}
+
+#join input {
+    outline: none;
+    height: 40px;
+    padding: 0 10px;
     border: 1px solid lightgray;
-    padding: 8px;
-    font-size: 17px;
-    white-space: nowrap;
-    text-align: left;
+    border-radius: 5px;
+    font-size: 1em;
+    width: 250px;
+    box-sizing: border-box;
 }
 
-#eval1, #eval2, #eval3 {
-    min-width: 60px;
-    text-align: right;
+#join button {
+    border: none;
+    height: 45px;
+    width: 150px;
+    background-color: #4CAF50; /* Green */
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
-#line1, #line2, #line3 {
-    min-width: 400px;
+#join button:hover {
+    background-color: #45a049;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* Media Queries */
-@media (max-width: 600px){
+/* Player Info Display (Multiplayer) */
+#playerInfo {
+    display: flex;
+    width: 100%;
+    max-width: 600px;
+    height: 80px;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1em;
+    color: #555;
+    margin-top: 20px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    display: none; /* Hidden by default */
+}
+
+#gamePlayerInfo {
+    display: none; /* Hidden by default, shown when game starts */
+    background-color: white;
+    border-radius: 10px;
+    flex-direction: column;
+    width: 100%;
+    max-width: 250px; /* Adjust width as needed */
+    height: auto;
+    justify-content: space-between;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    box-sizing: border-box;
+}
+
+.player {
+    padding: 10px;
+    color: rgb(77, 77, 77);
+    font-size: 1.1em;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.iconContainer {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.gameActions {
+    font-size: 1.5em;
+    color: #d9534f; /* Red for resign */
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.gameActions:hover {
+    color: #c9302c;
+}
+
+#counter {
+    display: flex;
+    justify-content: center;
+    font-size: 40px;
+    font-weight: bold;
+    color: #333;
+    margin-top: 20px;
+}
+
+/* Responsive Adjustments */
+@media (min-width: 768px) {
     body {
-        flex-direction: column;
+        flex-direction: row; /* Side-by-side on larger screens */
+        align-items: flex-start; /* Align to top */
+        justify-content: center;
+        gap: 30px; /* Space between main sections */
     }
-    .top-container {
-        flex-direction: column;
-        align-items: center;
-        gap: 0;
-    }
+
     .container {
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
+        flex-direction: row; /* Board and player info side-by-side */
+        justify-content: center;
+        align-items: flex-start;
+        max-width: unset; /* Remove max-width to allow more flexibility */
+        margin-bottom: 0;
     }
+
+    .chessBoard {
+        width: 600px; /* Fixed width for board on larger screens */
+        height: 600px;
+        max-width: 600px;
+    }
+
+    .top-container,
+    .evaluation-container {
+        align-self: flex-start; /* Align to top */
+        margin-top: 0;
+    }
+
+    .buttonContainer {
+        flex-direction: column; /* Stack buttons vertically */
+        width: auto;
+    }
+
+    #gamePlayerInfo {
+        height: 250px; /* Fixed height for player info */
+    }
+}
+
+@media (max-width: 600px) {
+    .coordinate {
+        font-size: 8px;
+    }
+
+    #alert {
+        font-size: 20px;
+        height: 60px;
+    }
+
     .buttonContainer {
         flex-direction: row;
-        width: 90vw;
+        align-items: last baseline;
         justify-content: center;
-        align-items: center;
-        margin: 10px 0;
+        width: 100%;
     }
-    .buttonContainer button, .buttonContainer select {
-        width: 25vw;
-        font-size: 10px;
-        margin: 0 2px;
+
+    .buttonContainer button,
+    .buttonContainer select {
+        width: 25vw; /* Adjust width for smaller buttons on mobile */
+        margin-right: 5px;
+        font-size: 0.8em;
+        padding: 8px;
     }
-    .level-select {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 2px;
+
+    #join input {
+        width: 80%;
     }
-    .chessBoard {
-        width: 90vw;
-        height: 90vw;
-    }
-    #evalBar {
-        width: 90vw;
-        height: 30px;
-        flex-direction: row;
-        justify-content: center;
-    }
-    #evalBar .blackBar {
-        height: 100%;
-        width: 35%;
-        left: 0;
-        top: 0;
-    }
-    .zero {
-        height: 100%;
-        width: 2px;
-        border-bottom: none;
-        border-right: 2px solid rgba(214, 79, 0, 0.8);
-        left: 50%;
-        top: 0;
-        transform: translateX(-50%);
-    }
-    .evalNum {
-        top: auto;
-        bottom: 5px;
-        font-size: 0.6rem;
-    }
-    #topLines {
-        width: 90vw;
-        font-size: 10px;
-    }
-    #topLines td, #topLines th {
-        font-size: 10px;
-    }
-    #line1, #line2, #line3{
-        max-width: 200px;
+
+    #join button {
+        width: 120px;
     }
 }
