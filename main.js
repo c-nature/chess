@@ -33,6 +33,8 @@ const whiteFill = document.querySelector('.eval-fill-white'); // Element for whi
 const blackFill = document.querySelector('.eval-fill-black'); // Element for black's evaluation fill
 
 // Expose necessary variables/functions for external access if needed by /client
+// Functions like newGame, showAlert, makeMove are defined later in this script
+// and will be accessible globally when handleWebSocketMessage is called.
 window.main = {
     handleWebSocketMessage: function(data) {
         if (data.type === "playerList") {
@@ -43,25 +45,19 @@ window.main = {
             turnColor = 'white'; // Game always starts with white
             allowMovement = myColor === turnColor;
             gameContainer.style.display = 'flex';
-            newGame(); // Start a new game with assigned color
+            newGame(); // Call the global newGame function
         } else if (data.type === "move") {
             // Multiplayer move received
-            makeMove(data.startSquare, data.endSquare, data.promotedTo);
+            makeMove(data.startSquare, data.endSquare, data.promotedTo); // Call the global makeMove function
         } else if (data.type === "resign") {
-            showAlert(`${data.winner} wins! ${myColor === data.winner ? 'You' : 'Opponent'} resigned.`);
+            showAlert(`${data.winner} wins! ${myColor === data.winner ? 'You' : 'Opponent'} resigned.`); // Call the global showAlert function
             allowMovement = false;
         } else if (data.type === "error") {
-            showAlert(data.message);
+            showAlert(data.message); // Call the global showAlert function
         }
-    },
-    myColor,
-    opponentColor,
-    turnColor,
-    allowMovement,
-    gameContainer,
-    newGame,
-    showAlert,
-    makeMove
+    }
+    // Removed direct references to global functions/variables here, as they are already globally accessible
+    // by handleWebSocketMessage when it is executed.
 };
 
 document.addEventListener('DOMContentLoaded', (event) => {
@@ -441,6 +437,23 @@ function handlePromotion(event) {
 function showAlert(message) {
     alertMessage.textContent = message;
     alertDiv.style.display = 'flex'; // Show the alert dialog
+}
+
+/**
+ * Checks the current game status (checkmate, draw, etc.) and displays alerts.
+ */
+function checkGameStatus() {
+    if (game.in_checkmate()) {
+        showAlert(`${turnColor === 'white' ? 'Black' : 'White'} wins by checkmate!`);
+        allowMovement = false;
+    } else if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition() || game.insufficient_material()) {
+        showAlert("Game ended in a draw!");
+        allowMovement = false;
+    } else if (game.in_check()) {
+        // Only show check alert if it's the player's turn and they are in check
+        // Or if it's the AI's turn and the player just put AI in check
+        showAlert(`${turnColor === 'white' ? 'White' : 'Black'} is in check!`);
+    }
 }
 
 /**
