@@ -125,6 +125,8 @@ function startSinglePlayerGame() {
 
     newGame();
     updateTurnIndicatorSinglePlayer();
+    const currentFEN = generateFEN(board);
+    getEvaluation(currentFEN, displayEvaluation);
 }
 
 /**
@@ -1170,9 +1172,16 @@ function getBestMove(fen, callback) {
         if (!stockfishWorker) showMessage("AI engine is unavailable.");
         return;
     }
+    // Remove any previous listener to prevent multiple calls
+    const oldListener = getBestMove.listener;
+    if (oldListener) {
+        stockfishWorker.removeEventListener('message', oldListener);
+    }
+    
     stockfishWorker.postMessage("position fen " + fen);
     const depth = Math.max(1, Math.min(20, selectedLevel * 2)); // Dynamic depth based on level
     stockfishWorker.postMessage(`go depth ${depth}`);
+    
     const listener = function(event) {
         const message = event.data;
         if (message.startsWith("bestmove")) {
@@ -1182,6 +1191,7 @@ function getBestMove(fen, callback) {
         }
     };
     stockfishWorker.addEventListener('message', listener);
+    getBestMove.listener = listener;
 }
 
 /**
@@ -1196,9 +1206,16 @@ function getEvaluation(fen, callback) {
         }
         return;
     }
+    // Remove any previous listener to prevent multiple calls
+    const oldListener = getEvaluation.listener;
+    if (oldListener) {
+        stockfishWorker.removeEventListener('message', oldListener);
+    }
+
     stockfishWorker.postMessage("ucinewgame");
     stockfishWorker.postMessage("position fen " + fen);
     stockfishWorker.postMessage("go depth 10"); // Fixed depth for evaluation
+    
     const listener = function(event) {
         const message = event.data;
         if (message.startsWith("info")) {
@@ -1238,6 +1255,7 @@ function getEvaluation(fen, callback) {
         }
     };
     stockfishWorker.addEventListener('message', listener);
+    getEvaluation.listener = listener;
 }
 
 function initializeEvaluationElements() {
