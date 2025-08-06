@@ -33,8 +33,6 @@ const whiteFill = document.querySelector('.eval-fill-white'); // Element for whi
 const blackFill = document.querySelector('.eval-fill-black'); // Element for black's evaluation fill
 
 // Expose necessary variables/functions for external access if needed by /client
-// Functions like newGame, showAlert, makeMove are defined later in this script
-// and will be accessible globally when handleWebSocketMessage is called.
 window.main = {
     handleWebSocketMessage: function(data) {
         if (data.type === "playerList") {
@@ -56,12 +54,9 @@ window.main = {
             showAlert(data.message); // Call the global showAlert function
         }
     }
-    // Removed direct references to global functions/variables here, as they are already globally accessible
-    // by handleWebSocketMessage when it is executed.
 };
 
 document.addEventListener('DOMContentLoaded', (event) => {
-    initializeStockfish();
     singlePlayerBtn.addEventListener('click', () => setGameMode('singlePlayer'));
     multiplayerBtn.addEventListener('click', () => setGameMode('multiplayer'));
     joinGameBtn.addEventListener('click', joinGame);
@@ -88,7 +83,12 @@ function initializeStockfish() {
         stockfishWorker.onmessage = handleStockfishMessage;
         stockfishWorker.onerror = (error) => {
             console.error("Stockfish Worker Error:", error);
-            showAlert("AI engine error. Please refresh.");
+            // Check if the error is due to SharedArrayBuffer
+            if (error.message.includes("SharedArrayBuffer is not defined")) {
+                showAlert("AI engine error: Cross-Origin Isolation required. Please ensure your server sends 'Cross-Origin-Opener-Policy: same-origin' and 'Cross-Origin-Embedder-Policy: require-corp' headers.");
+            } else {
+                showAlert("AI engine error. Please refresh.");
+            }
         };
         // Send UCI commands to Stockfish
         stockfishWorker.postMessage("uci");
@@ -146,6 +146,7 @@ function setGameMode(mode) {
         gameContainer.style.display = 'flex'; // Show chessboard
         myColor = 'white'; // Player is always white in single player
         opponentColor = 'black'; // AI is always black
+        initializeStockfish(); // Initialize Stockfish when single player is selected
         newGame(); // Start a new single player game
     } else if (gameMode === 'multiplayer') {
         topContainer.style.display = 'none'; // Hide single player controls
@@ -192,7 +193,26 @@ function newGame() {
         draggable: true,
         onDrop: onDrop, // Callback for drag-and-drop moves
         onSnapEnd: onSnapEnd, // Callback after piece animation ends
-        orientation: myColor // Set board orientation based on player color
+        orientation: myColor, // Set board orientation based on player color
+        // Configure pieceTheme to load images from the root directory
+        // This function will be called by chessboard.js for each piece
+        pieceTheme: function(piece) {
+            // piece is like 'wP', 'bN', 'bQ', etc.
+            const color = piece.charAt(0) === 'w' ? 'white' : 'black';
+            const type = piece.charAt(1);
+            let pieceName;
+            switch (type) {
+                case 'P': pieceName = 'Pawn'; break;
+                case 'N': pieceName = 'Knight'; break;
+                case 'B': pieceName = 'Bishop'; break;
+                case 'R': pieceName = 'Rook'; break;
+                case 'Q': pieceName = 'Queen'; break;
+                case 'K': pieceName = 'King'; break;
+                default: return ''; // Should not happen
+            }
+            // Construct the path to your PNG files, assuming they are in the root
+            return `${color}-${pieceName}.png`;
+        }
     });
 
     // Reset turn color to white (Chess.js default)
@@ -200,14 +220,19 @@ function newGame() {
 
     // If single player, reset Stockfish and potentially make AI move
     if (gameMode === 'singlePlayer') {
-        stockfishWorker.postMessage("ucinewgame"); // Tell Stockfish to start a new game
-        stockfishWorker.postMessage("isready");
-        stockfishWorker.postMessage(`position startpos`); // Set initial position for Stockfish
-        if (myColor === 'black') { // If player is black, AI (white) moves first
-            allowMovement = false; // Player waits for AI's move
-            stockfishWorker.postMessage("go depth 15"); // Ask AI for a move
+        // Only send Stockfish commands if the worker is successfully initialized
+        if (stockfishWorker) {
+            stockfishWorker.postMessage("ucinewgame"); // Tell Stockfish to start a new game
+            stockfishWorker.postMessage("isready");
+            stockfishWorker.postMessage(`position startpos`); // Set initial position for Stockfish
+            if (myColor === 'black') { // If player is black, AI (white) moves first
+                allowMovement = false; // Prevent player movement during AI turn
+                stockfishWorker.postMessage("go depth 15"); // Ask AI for a move
+            } else {
+                allowMovement = true; // Player (white) moves first
+            }
         } else {
-            allowMovement = true; // Player (white) moves first
+            console.warn("Stockfish worker not initialized. AI will not function.");
         }
     }
     updateEvaluationBar(); // Update evaluation display
@@ -288,9 +313,33 @@ function onSnapEnd() {
  * Central function to apply a move to the game state and update UI.
  * This function is called by onDrop, handleSquareClick (after promotion),
  * and when an AI/multiplayer opponent makes a move.
- * @param {object} move - The move object returned by game.move().
+ * @param {string} startSquare - The starting square of the move.
+ * @param {string} endSquare - The ending square of the move.
+ * @param {string} promotedTo - The piece type to promote to (e.g., 'q' for queen), or null.
  */
-function handleMoveMade(move) {
+function makeMove(startSquare, endSquare, promotedTo) {
+    // Prevent movement if not allowed or if it's not the player's turn
+    // This check is crucial to prevent AI from moving when it's not its turn
+    // or player moving when it's not their turn.
+    if (!allowMovement && gameMode === 'singlePlayer' && game.turn() === myColor.charAt(0)) {
+        // If it's single player and AI's turn, and player tries to move, prevent it.
+        // This scenario is mainly for drag-and-drop; click-to-move is already guarded.
+        return 'snapback';
+    }
+
+    const move = game.move({
+        from: startSquare,
+        to: endSquare,
+        promotion: promotedTo // Use the provided promotion piece
+    });
+
+    if (move === null) {
+        // This should ideally not happen if the move comes from Stockfish
+        // or a validated multiplayer message, but good for robustness.
+        console.error("Illegal move attempted:", startSquare, endSquare, promotedTo);
+        return; // Do not proceed with an illegal move
+    }
+
     board.position(game.fen()); // Update the visual board
     turnColor = game.turn() === 'w' ? 'white' : 'black'; // Update turn based on chess.js
 
@@ -299,8 +348,12 @@ function handleMoveMade(move) {
     // If it's single player and now AI's turn, ask Stockfish for a move
     if (gameMode === 'singlePlayer' && turnColor !== myColor) {
         allowMovement = false; // Prevent player movement during AI turn
-        stockfishWorker.postMessage(`position fen ${game.fen()}`);
-        stockfishWorker.postMessage("go depth 15"); // Request AI to calculate a move
+        if (stockfishWorker) { // Ensure worker is initialized before sending messages
+            stockfishWorker.postMessage(`position fen ${game.fen()}`);
+            stockfishWorker.postMessage("go depth 15"); // Request AI to calculate a move
+        } else {
+            console.warn("Stockfish worker not initialized. AI will not function.");
+        }
     } else {
         allowMovement = true; // Allow player movement if it's their turn
     }
@@ -318,6 +371,7 @@ function handleMoveMade(move) {
     checkGameStatus(); // Check for checkmate, draw, etc.
     updateEvaluationBar(); // Update the evaluation display
 }
+
 
 /**
  * Handles click events on chessboard squares for click-to-move functionality.
@@ -364,7 +418,8 @@ function handleSquareClick(event) {
                     p.classList.add(move.color === 'w' ? 'white-piece' : 'black-piece');
                 });
             } else {
-                handleMoveMade(move); // If no promotion, process the move
+                // If no promotion, process the move using the makeMove function
+                makeMove(selectedSquare, square, move.promotion);
             }
             selectedSquare = null; // Clear selected square after attempting move
         } else {
