@@ -1,384 +1,1177 @@
-let gameMode = null;
-let board = null;
-let game = null;
+// Global board state
+let board = [];
+let legalSquares = [];
+let isWhiteTurn = true;
+let enPassantTargetSquare = null;
+let selectedSquare = null;
+let selectedPiece = null;
+let pawnPromotionTargetSquareId = null;
+let isEngineWhite = false;
+let selectedLevel = 10; // Default to max level
+
+// Multiplayer state variables
+let isMultiplayer = false;
+let myColor = null;
+let myUsername = null;
+let turnColor = 'white';
+let allowMovement = false;
+let opponentUsername = null;
+let ws = null;
+
+// Castling flags
+let hasWhiteKingMoved = false;
+let hasBlackKingMoved = false;
+let hasWhiteKingsideRookMoved = false;
+let hasWhiteQueensideRookMoved = false;
+let hasBlackKingsideRookMoved = false;
+let hasBlackQueensideRookMoved = false;
+
+// Global Stockfish worker instance
 let stockfishWorker = null;
-let allowMovement = true;
-let myColor = null; // 'white' or 'black'
-let opponentColor = null;
-let turnColor = 'white'; // 'white' or 'black' (corresponds to game.turn() 'w' or 'b')
-let evaluation = 0;
-let selectedSquare = null; // For click-to-move
-let promotionDetails = null; // Stores { from, to } for promotion
+let evaluations = [];
+let lines = [];
+let scoreStrings = [];
+
+// DOM element references
+const chessBoard = document.querySelector('.chessBoard');
+const boardSquares = document.getElementsByClassName('square');
+const pieces = document.getElementsByClassName('piece');
+const newGameBtn = document.getElementById("newGame");
+const switchSidesBtn = document.getElementById("switchSides");
+const levelSelect = document.getElementById("level");
+const promotionOverlay = document.getElementById('promotion-overlay');
+const promotionChoices = document.querySelector('.promotion-choices');
 let evaluationElements = null;
 
-const gameModeSelectionDiv = document.getElementById('game-mode-selection');
-const joinDiv = document.getElementById('joinDiv');
-const singlePlayerBtn = document.getElementById('singlePlayerBtn');
-const multiplayerBtn = document.getElementById('multiplayerBtn');
-const joinGameBtn = document.getElementById('joinGameBtn');
-const usernameInput = document.getElementById('usernameInput');
-const gamePlayerInfo = document.getElementById('gamePlayerInfo');
-const playerInfo = document.getElementById('playerInfo');
-const topContainer = document.getElementById('topContainer');
-const gameContainer = document.getElementById('gameContainer');
-const newGameBtn = document.getElementById('newGameBtn');
-const resignBtn = document.getElementById('resignBtn');
-const alertDiv = document.getElementById('alert');
-const alertMessage = document.getElementById('alertMessage');
-const alertOkBtn = document.getElementById('alertOkBtn');
-const promotionOverlay = document.getElementById('promotion-overlay');
-const promotionPieces = document.querySelectorAll('.promotion-piece');
+// New DOM elements for multiplayer
+const lobbyContainer = document.getElementById('lobby-container');
+const gameContainer = document.getElementById('game-container');
+const usernameInput = document.getElementById('username');
+const joinGameBtn = document.getElementById('join-game-btn');
+const statusMessage = document.getElementById('status-message');
+const playerList = document.getElementById('player-list');
+const resignBtn = document.getElementById('resign-btn');
+const turnIndicator = document.getElementById('turn-indicator');
+const playerInfo = document.getElementById('player-info');
 
-window.main = {
-    handleWebSocketMessage: function(data) {
-        if (data.type === "playerList") {
-            playerInfo.textContent = data.players.join(', ') || "Waiting for opponent...";
-        } else if (data.type === "color") {
-            myColor = data.color;
-            opponentColor = data.color === 'white' ? 'black' : 'white';
-            turnColor = 'white'; // Game always starts with white
-            allowMovement = myColor === turnColor;
-            gameContainer.style.display = 'flex';
-            board.orientation(myColor);
-            newGame();
-        } else if (data.type === "move") {
-            makeMove(data.startSquare, data.endSquare, data.promotedTo);
-        } else if (data.type === "resign") {
-            showAlert(`${data.winner} wins! ${myColor === data.winner ? 'You' : 'Opponent'} resigned.`);
-            allowMovement = false;
-        } else if (data.type === "error") {
-            showAlert(data.message);
-        }
-    }
-};
-
+// Ensure DOM is fully loaded before setting up event listeners
 document.addEventListener('DOMContentLoaded', (event) => {
-    singlePlayerBtn.addEventListener('click', () => setGameMode('singlePlayer'));
-    multiplayerBtn.addEventListener('click', () => setGameMode('multiplayer'));
+    // Hide game container initially
+    gameContainer.classList.add('hidden');
+    lobbyContainer.classList.remove('hidden');
+
     joinGameBtn.addEventListener('click', joinGame);
-    newGameBtn.addEventListener('click', newGame);
     resignBtn.addEventListener('click', resignGame);
-    alertOkBtn.addEventListener('click', () => {
-        alertDiv.style.display = 'none';
-    });
-    promotionPieces.forEach(piece => {
-        piece.addEventListener('click', handlePromotion);
-    });
-    document.getElementById('chessboard').addEventListener('click', handleSquareClick);
+
+    // Initial setup for single player mode
+    setupBoardSquares();
+    initializeBoardState();
+    initializeEvaluationElements();
+    setupPieces();
+    renderBoard();
+    
+    // Add event listeners for single player buttons
+    newGameBtn.addEventListener('click', newGame);
+    switchSidesBtn.addEventListener('click', flipBoard);
+    levelSelect.addEventListener('change', updateLevel);
+    updateLevel(); // Set initial skill level
 });
-
-/**
- * Initializes the Stockfish Web Worker.
- */
-function initializeStockfish() {
-    if (!stockfishWorker) {
-        stockfishWorker = new Worker("lib/stockfish-nnue-16.js");
-        stockfishWorker.onmessage = handleStockfishMessage;
-        stockfishWorker.onerror = (error) => {
-            console.error("Stockfish Worker Error:", error);
-            if (error.message.includes("SharedArrayBuffer is not defined")) {
-                showAlert("AI engine error: Cross-Origin Isolation required. Please ensure your server sends 'Cross-Origin-Opener-Policy: same-origin' and 'Cross-Origin-Embedder-Policy: require-corp' headers.");
-            } else {
-                showAlert("AI engine error. Please refresh.");
-            }
-        };
-        stockfishWorker.postMessage("uci");
-        stockfishWorker.postMessage("isready");
-        stockfishWorker.postMessage("setoption name multipv value 3");
-    }
-}
-
-/**
- * Handles messages received from the Stockfish Web Worker.
- */
-function handleStockfishMessage(event) {
-    const message = event.data;
-    if (message.startsWith("bestmove")) {
-        const move = message.split(" ")[1];
-        if (move) {
-            const startSquare = move.substring(0, 2);
-            const endSquare = move.substring(2, 4);
-            const promotedTo = move.length > 4 ? move.substring(4, 5) : null;
-            makeMove(startSquare, endSquare, promotedTo);
-        }
-    } else if (message.startsWith("info")) {
-        const infoParts = message.split(" ");
-        const scoreIndex = infoParts.indexOf("score");
-        if (scoreIndex !== -1 && infoParts[scoreIndex + 1] === "cp") {
-            evaluation = parseFloat(infoParts[scoreIndex + 2]) / 100;
-            displayEvaluation();
-        }
-    }
-}
-
-/**
- * Sets the game mode and updates UI visibility.
- */
-function setGameMode(mode) {
-    gameMode = mode;
-    gameModeSelectionDiv.style.display = 'none';
-
-    if (gameMode === 'singlePlayer') {
-        topContainer.style.display = 'flex';
-        evaluationContainer.style.display = 'flex'; // Assuming this exists in HTML
-        joinDiv.style.display = 'none';
-        gamePlayerInfo.style.display = 'none';
-        playerInfo.style.display = 'none';
-        gameContainer.style.display = 'flex';
-        myColor = 'white';
-        opponentColor = 'black';
-        initializeStockfish();
-        newGame();
-    } else if (gameMode === 'multiplayer') {
-        topContainer.style.display = 'none';
-        evaluationContainer.style.display = 'none'; // Hide evaluation in multiplayer
-        joinDiv.style.display = 'flex';
-        gamePlayerInfo.style.display = 'flex';
-        playerInfo.style.display = 'flex';
-        gameContainer.style.display = 'none';
-    }
-}
 
 /**
  * Handles joining a multiplayer game.
  */
 function joinGame() {
-    const username = usernameInput.value.trim();
-    if (username) {
-        joinDiv.style.display = 'none';
-        gamePlayerInfo.style.display = 'flex';
-        playerInfo.textContent = `Waiting for opponent... (You: ${username})`;
-        if (typeof ws !== 'undefined' && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'join', username }));
-        } else {
-            showAlert("WebSocket connection not available. Please try again.");
-        }
-    } else {
-        showAlert("Please enter a username.");
+    myUsername = usernameInput.value.trim();
+    if (myUsername === "") {
+        showMessage("Please enter a username.");
+        return;
     }
+    
+    statusMessage.textContent = "Connecting...";
+    ws = new WebSocket("ws://localhost:3000");
+
+    ws.onopen = function() {
+        console.log("WebSocket connection established.");
+        ws.send(JSON.stringify({ type: "join", username: myUsername }));
+        statusMessage.textContent = "Waiting for an opponent...";
+    };
+
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        handleWebSocketMessage(data);
+    };
+
+    ws.onclose = function() {
+        console.log("WebSocket connection closed.");
+        showMessage("Connection to server lost. Please refresh.");
+        isMultiplayer = false;
+        // Optionally switch back to single-player mode
+        gameContainer.classList.add('hidden');
+        lobbyContainer.classList.remove('hidden');
+    };
+
+    ws.onerror = function(error) {
+        console.error("WebSocket error:", error);
+        showMessage("WebSocket error occurred. Please refresh.");
+    };
 }
 
 /**
- * Starts a new game.
+ * Handles all incoming WebSocket messages from the server.
  */
-function newGame() {
-    allowMovement = true;
-    game = new Chess();
-    board = Chessboard('chessboard', {
-        position: 'start',
-        draggable: true,
-        onDrop: onDrop,
-        onSnapEnd: onSnapEnd,
-        orientation: myColor,
-        pieceTheme: function(piece) {
-            const color = piece.charAt(0) === 'w' ? 'white' : 'black';
-            const type = piece.charAt(1);
-            let pieceName;
-            switch (type) {
-                case 'P': pieceName = 'Pawn'; break;
-                case 'N': pieceName = 'Knight'; break;
-                case 'B': pieceName = 'Bishop'; break;
-                case 'R': pieceName = 'Rook'; break;
-                case 'Q': pieceName = 'Queen'; break;
-                case 'K': pieceName = 'King'; break;
-                default: return '';
+function handleWebSocketMessage(data) {
+    switch (data.type) {
+        case "playerList":
+            // Update the list of players in the lobby
+            playerList.innerHTML = '';
+            data.players.forEach(p => {
+                const li = document.createElement('li');
+                li.textContent = p;
+                playerList.appendChild(li);
+            });
+            if (data.players.length === 2) {
+                statusMessage.textContent = "Game starting...";
             }
-            return `${color}-${pieceName}.png`;
-        }
-    });
+            break;
+        case "color":
+            // Game starts, assign color and show game board
+            isMultiplayer = true;
+            myColor = data.color;
+            opponentUsername = data.opponent;
+            
+            lobbyContainer.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            
+            turnColor = 'white';
+            allowMovement = myColor === turnColor;
 
-    turnColor = 'white';
-    if (gameMode === 'singlePlayer' && stockfishWorker) {
-        stockfishWorker.postMessage("ucinewgame");
-        stockfishWorker.postMessage("isready");
-        stockfishWorker.postMessage("position startpos");
-        if (myColor === 'black') {
+            // Hide single-player elements, show multiplayer elements
+            document.querySelectorAll('.single-player-only').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.multiplayer-only').forEach(el => el.classList.remove('hidden'));
+
+            // Set up board for multiplayer
+            newGame();
+            if (myColor === 'black') {
+                chessBoard.classList.add('flipped');
+            } else {
+                chessBoard.classList.remove('flipped');
+            }
+            
+            updateTurnIndicator();
+            updatePlayerInfo();
+            break;
+        case "move":
+            // An opponent's move
+            performMove(data.startSquare, data.endSquare, data.promotedTo);
+            break;
+        case "resign":
+            // Opponent resigned
+            showMessage(`Your opponent has resigned! You win!`);
             allowMovement = false;
-            stockfishWorker.postMessage("go depth 15");
-        }
+            break;
+        case "error":
+            showMessage(data.message);
+            break;
     }
-    displayEvaluation();
-    clearHighlights();
 }
 
 /**
- * Handles a player resigning the game.
+ * Sends a move to the WebSocket server.
+ */
+function sendMoveToServer(startSquare, endSquare, promotedTo = '') {
+    if (!isMultiplayer || !ws) return;
+    ws.send(JSON.stringify({
+        type: "move",
+        startSquare: startSquare,
+        endSquare: endSquare,
+        promotedTo: promotedTo
+    }));
+}
+
+/**
+ * Handles the user resigning from a multiplayer game.
  */
 function resignGame() {
-    if (gameMode === 'multiplayer' && typeof ws !== 'undefined' && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'resign', winner: opponentColor }));
-    }
-    showAlert(`${myColor} resigned. ${opponentColor} wins!`);
-    allowMovement = false;
-}
-
-/**
- * Chessboard.js onDrop handler for drag-and-drop moves.
- */
-function onDrop(source, target) {
-    if (!allowMovement || (gameMode === 'singlePlayer' && game.turn() === 'b')) return 'snapback';
-    const move = game.move({
-        from: source,
-        to: target,
-        promotion: 'q'
-    });
-    if (move === null) return 'snapback';
-    handleMoveMade(move);
-}
-
-/**
- * Chessboard.js onSnapEnd handler.
- */
-function onSnapEnd() {
-    board.position(game.fen());
-}
-
-/**
- * Central function to apply a move to the game state and update UI.
- */
-function makeMove(startSquare, endSquare, promotedTo) {
-    if (!allowMovement) return;
-    const move = game.move({
-        from: startSquare,
-        to: endSquare,
-        promotion: promotedTo
-    });
-    if (move === null) {
-        console.error("Illegal move attempted:", startSquare, endSquare, promotedTo);
-        return;
-    }
-    handleMoveMade(move);
-}
-
-/**
- * Handles click events on chessboard squares for click-to-move functionality.
- */
-function handleSquareClick(event) {
-    if (!allowMovement || (gameMode === 'singlePlayer' && game.turn() === 'b')) return;
-    const squareElement = event.target.closest('.square-55d63');
-    if (!squareElement) return;
-    const square = squareElement.getAttribute('data-square');
-    const piece = game.get(square);
-    clearHighlights();
-    if (selectedSquare === square) {
-        selectedSquare = null;
-        return;
-    }
-    if (selectedSquare) {
-        const moveAttempt = game.move({
-            from: selectedSquare,
-            to: square,
-            promotion: 'q'
-        });
-        if (moveAttempt) {
-            makeMove(selectedSquare, square, moveAttempt.promotion);
-            selectedSquare = null;
-        } else if (piece && piece.color === myColor.charAt(0)) {
-            selectedSquare = square;
-            squareElement.classList.add('selected');
-            highlightLegalMoves(square);
-        } else {
-            selectedSquare = null;
+    if (isMultiplayer && ws) {
+        if (confirm("Are you sure you want to resign?")) {
+            ws.send(JSON.stringify({
+                type: "resign",
+                winner: myColor === 'white' ? 'black' : 'white'
+            }));
+            showMessage("You have resigned from the game.");
+            allowMovement = false;
         }
-    } else if (piece && piece.color === myColor.charAt(0)) {
-        selectedSquare = square;
-        squareElement.classList.add('selected');
-        highlightLegalMoves(square);
     }
 }
 
 /**
- * Handles the move made and updates game state.
+ * Updates the engine's skill level based on the selected level.
  */
-function handleMoveMade(move) {
-    board.position(game.fen());
-    turnColor = game.turn() === 'w' ? 'white' : 'black';
-    clearHighlights();
-    if (gameMode === 'singlePlayer' && turnColor !== myColor) {
-        allowMovement = false;
-        if (stockfishWorker) {
-            stockfishWorker.postMessage(`position fen ${game.fen()}`);
-            stockfishWorker.postMessage("go depth 15");
+function updateLevel() {
+    if (isMultiplayer) return;
+    selectedLevel = parseInt(levelSelect.value, 10) || 10;
+    const skillLevel = Math.round((selectedLevel - 1) * 2); // Map 1-10 to 0-20 skill levels
+    if (stockfishWorker) {
+        stockfishWorker.postMessage("setoption name Skill Level value " + skillLevel);
+        stockfishWorker.postMessage("setoption name Contempt value 0"); // Neutral contempt for fairness
+    }
+}
+
+/**
+ * Initializes all the necessary global and state variables for a new game.
+ */
+function newGame() {
+    const initialBoardHTML = `
+        <div class="square white" id="a8"><div class="coordinate rank blackText">8</div><div class="piece rook" color="black"><img src="black-Rook.png" alt="Black Rook"></div></div>
+        <div class="square black" id="b8"><div class="piece knight" color="black"><img src="black-Knight.png" alt="Black Knight"></div></div>
+        <div class="square white" id="c8"><div class="piece bishop" color="black"><img src="black-Bishop.png" alt="Black Bishop"></div></div>
+        <div class="square black" id="d8"><div class="piece queen" color="black"><img src="black-Queen.png" alt="Black Queen"></div></div>
+        <div class="square white" id="e8"><div class="piece king" color="black"><img src="black-King.png" alt="Black King"></div></div>
+        <div class="square black" id="f8"><div class="piece bishop" color="black"><img src="black-Bishop.png" alt="Black Bishop"></div></div>
+        <div class="square white" id="g8"><div class="piece knight" color="black"><img src="black-Knight.png" alt="Black Knight"></div></div>
+        <div class="square black" id="h8"><div class="piece rook" color="black"><img src="black-Rook.png" alt="Black Rook"></div></div>
+        <div class="square black" id="a7"><div class="coordinate rank whiteText">7</div><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
+        <div class="square white" id="b7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
+        <div class="square black" id="c7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
+        <div class="square white" id="d7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
+        <div class="square black" id="e7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
+        <div class="square white" id="f7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
+        <div class="square black" id="g7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
+        <div class="square white" id="h7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
+        <div class="square white" id="a6"></div><div class="square black" id="b6"></div><div class="square white" id="c6"></div><div class="square black" id="d6"></div><div class="square white" id="e6"></div><div class="square black" id="f6"></div><div class="square white" id="g6"></div><div class="square black" id="h6"></div>
+        <div class="square black" id="a5"></div><div class="square white" id="b5"></div><div class="square black" id="c5"></div><div class="square white" id="d5"></div><div class="square black" id="e5"></div><div class="square white" id="f5"></div><div class="square black" id="g5"></div><div class="square white" id="h5"></div>
+        <div class="square white" id="a4"></div><div class="square black" id="b4"></div><div class="square white" id="c4"></div><div class="square black" id="d4"></div><div class="square white" id="e4"></div><div class="square black" id="f4"></div><div class="square white" id="g4"></div><div class="square black" id="h4"></div>
+        <div class="square black" id="a3"></div><div class="square white" id="b3"></div><div class="square black" id="c3"></div><div class="square white" id="d3"></div><div class="square black" id="e3"></div><div class="square white" id="f3"></div><div class="square black" id="g3"></div><div class="square white" id="h3"></div>
+        <div class="square white" id="a2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square black" id="b2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square white" id="c2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square black" id="d2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square white" id="e2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square black" id="f2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square white" id="g2"><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square black" id="h2"><div class="coordinate rank whiteText">2</div><div class="piece pawn" color="white"><img src="white-Pawn.png" alt="White Pawn"></div></div>
+        <div class="square black" id="a1"><div class="coordinate file whiteText">a</div><div class="piece rook" color="white"><img src="white-Rook.png" alt="White Rook"></div></div>
+        <div class="square white" id="b1"><div class="coordinate file blackText">b</div><div class="piece knight" color="white"><img src="white-Knight.png" alt="White Knight"></div></div>
+        <div class="square black" id="c1"><div class="coordinate file whiteText">c</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div></div>
+        <div class="square white" id="d1"><div class="coordinate file blackText">d</div><div class="piece queen" color="white"><img src="white-Queen.png" alt="White Queen"></div></div>
+        <div class="square black" id="e1"><div class="coordinate file whiteText">e</div><div class="piece king" color="white"><img src="white-King.png" alt="White King"></div></div>
+        <div class="square white" id="f1"><div class="coordinate file blackText">f</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White Bishop"></div></div>
+        <div class="square black" id="g1"><div class="coordinate file whiteText">g</div><div class="piece knight" color="white"><img src="white-Knight.png" alt="White Knight"></div></div>
+        <div class="square white" id="h1"><div class="coordinate file blackText">h</div><div class="coordinate rank blackText">1</div><div class="piece rook" color="white"><img src="white-Rook.png" alt="White Rook"></div></div>
+    `;
+
+    chessBoard.innerHTML = initialBoardHTML;
+    board = [];
+    legalSquares = [];
+    isWhiteTurn = true;
+    enPassantTargetSquare = null;
+    selectedSquare = null;
+    selectedPiece = null;
+    pawnPromotionTargetSquareId = null;
+    isEngineWhite = false;
+    hasWhiteKingMoved = false;
+    hasBlackKingMoved = false;
+    hasWhiteKingsideRookMoved = false;
+    hasWhiteQueensideRookMoved = false;
+    hasBlackKingsideRookMoved = false;
+    hasBlackQueensideRookMoved = false;
+
+    setupBoardSquares();
+    initializeBoardState();
+    setupPieces();
+    renderBoard();
+
+    if (!isMultiplayer) {
+        updateLevel(); // Reapply the current skill level if single player
+    }
+}
+
+/**
+ * Flips the board and switches sides for the AI opponent.
+ */
+function flipBoard() {
+    if (isMultiplayer) return; // Disable in multiplayer
+    chessBoard.classList.toggle('flipped');
+    isEngineWhite = !isEngineWhite;
+    renderBoard();
+    if ((isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn)) {
+        const currentFEN = generateFEN(board);
+        getBestMove(currentFEN, playBestMove);
+    }
+}
+
+/**
+ * Sets up event listeners and IDs for each square on the chessboard.
+ */
+function setupBoardSquares() {
+    const allBoardSquares = document.querySelectorAll('.chessBoard > .square');
+    for (let i = 0; i < allBoardSquares.length; i++) {
+        allBoardSquares[i].addEventListener('dragover', allowDrop);
+        allBoardSquares[i].addEventListener('drop', drop);
+        allBoardSquares[i].addEventListener('click', selectSquare);
+
+        let row = 8 - Math.floor(i / 8);
+        let column = String.fromCharCode(97 + (i % 8));
+        allBoardSquares[i].id = column + row;
+    }
+}
+
+/**
+ * Sets up draggable attribute and IDs for each piece.
+ */
+function setupPieces() {
+    const allPieces = document.getElementsByClassName('piece');
+    for (let i = 0; i < allPieces.length; i++) {
+        allPieces[i].removeEventListener('dragstart', drag);
+        allPieces[i].addEventListener('dragstart', drag);
+        allPieces[i].setAttribute('draggable', true);
+        allPieces[i].id = allPieces[i].classList[1] + "-" + allPieces[i].parentElement.id;
+    }
+    const currentPieceImages = document.getElementsByTagName("img");
+    for (let i = 0; i < currentPieceImages.length; i++) {
+        currentPieceImages[i].setAttribute('draggable', false);
+    }
+}
+
+/**
+ * Helper to convert square ID (e.g., "a1") to board indices [row, col].
+ */
+function squareIdToCoords(squareId) {
+    const file = squareId.charCodeAt(0) - 97;
+    const rank = parseInt(squareId.charAt(1));
+    const rowIndex = 8 - rank;
+    const colIndex = file;
+    return [rowIndex, colIndex];
+}
+
+/**
+ * Helper to convert board indices [row, col] to square ID (e.g., "a1").
+ */
+function coordsToSquareId(rowIndex, colIndex) {
+    const fileChar = String.fromCharCode(97 + colIndex);
+    const rankNum = 8 - rowIndex;
+    return fileChar + rankNum;
+}
+
+/**
+ * Initializes the internal board state based on the current HTML.
+ */
+function initializeBoardState() {
+    board = Array(8).fill(null).map(() => Array(8).fill(null));
+    const allBoardSquares = document.querySelectorAll('.chessBoard > .square');
+    for (let i = 0; i < allBoardSquares.length; i++) {
+        const squareElement = allBoardSquares[i];
+        const [row, col] = squareIdToCoords(squareElement.id);
+        const pieceElement = squareElement.querySelector('.piece');
+        if (pieceElement) {
+            board[row][col] = {
+                type: pieceElement.classList[1],
+                color: pieceElement.getAttribute('color')
+            };
         }
-    } else {
-        allowMovement = true;
     }
-    if (gameMode === 'multiplayer' && typeof ws !== 'undefined' && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-            type: 'move',
-            startSquare: move.from,
-            endSquare: move.to,
-            promotedTo: move.promotion
-        }));
-    }
-    checkGameStatus();
-    displayEvaluation();
+    hasWhiteKingMoved = false;
+    hasBlackKingMoved = false;
+    hasWhiteKingsideRookMoved = false;
+    hasWhiteQueensideRookMoved = false;
+    hasBlackKingsideRookMoved = false;
+    hasBlackQueensideRookMoved = false;
+    enPassantTargetSquare = null;
 }
 
 /**
- * Highlights legal moves on the board for a given square.
+ * Updates the DOM to reflect the internal board state.
  */
-function highlightLegalMoves(square) {
-    const moves = game.moves({ square: square, verbose: true });
-    moves.forEach(move => {
-        const targetSquareElement = document.querySelector(`.square-55d63[data-square="${move.to}"]`);
-        if (targetSquareElement) {
-            if (move.flags.includes('c')) {
-                targetSquareElement.classList.add('legal-capture');
-            } else {
-                targetSquareElement.classList.add('legal-move');
+function renderBoard() {
+    const chessBoard = document.querySelector('.chessBoard');
+    const existingCoordinates = chessBoard.querySelectorAll('.coordinate');
+    
+    const coordinatesMap = {};
+    existingCoordinates.forEach(coord => {
+      const square = coord.parentElement;
+      if (!coordinatesMap[square.id]) {
+        coordinatesMap[square.id] = [];
+      }
+      coordinatesMap[square.id].push(coord.outerHTML);
+    });
+
+    const allBoardSquares = document.querySelectorAll('.chessBoard > .square');
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const squareId = coordsToSquareId(r, c);
+            const squareElement = document.getElementById(squareId);
+            
+            while (squareElement.firstChild) {
+                squareElement.removeChild(squareElement.firstChild);
+            }
+
+            if (coordinatesMap[squareId]) {
+                coordinatesMap[squareId].forEach(coordHTML => {
+                    squareElement.insertAdjacentHTML('beforeend', coordHTML);
+                });
+            }
+
+            const piece = board[r][c];
+            if (piece) {
+                const pieceDiv = document.createElement('div');
+                pieceDiv.classList.add('piece', piece.type);
+                pieceDiv.setAttribute('color', piece.color);
+                pieceDiv.id = piece.type + "-" + squareId;
+                pieceDiv.setAttribute('draggable', true);
+
+                const pieceImg = document.createElement('img');
+                pieceImg.src = `${piece.color}-${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.png`;
+                pieceImg.alt = `${piece.color} ${piece.type}`;
+                pieceImg.setAttribute('draggable', false);
+
+                pieceDiv.appendChild(pieceImg);
+                squareElement.appendChild(pieceDiv);
             }
         }
-    });
-}
-
-/**
- * Clears all highlight classes from the chessboard squares.
- */
-function clearHighlights() {
-    document.querySelectorAll('.square-55d63.selected, .square-55d63.legal-move, .square-55d63.legal-capture').forEach(s => {
-        s.classList.remove('selected', 'legal-move', 'legal-capture');
-    });
-}
-
-/**
- * Handles the promotion piece selection.
- */
-function handlePromotion(event) {
-    const promotedTo = event.target.getAttribute('data-piece');
-    if (promotionDetails) {
-        makeMove(promotionDetails.from, promotionDetails.to, promotedTo);
-        promotionDetails = null;
     }
-    promotionOverlay.classList.remove('active');
+    setupPieces();
 }
 
 /**
- * Displays an alert message to the user.
+ * Handles the click-to-move logic.
  */
-function showAlert(message) {
-    alertMessage.textContent = message;
-    alertDiv.style.display = 'flex';
+function selectSquare(event) {
+    const clickedSquare = event.currentTarget;
+    const pieceOnSquare = clickedSquare.querySelector('.piece');
+    const clickedSquareId = clickedSquare.id;
+
+    let turnPlayerColor = isWhiteTurn ? 'white' : 'black';
+    if (isMultiplayer) {
+        turnPlayerColor = turnColor;
+    }
+    
+    if (selectedPiece) {
+        const originalSquareId = selectedPiece.parentElement.id;
+        if (legalSquares.includes(clickedSquareId)) {
+            performMove(originalSquareId, clickedSquareId);
+            selectedPiece = null;
+            legalSquares.length = 0;
+        } else {
+            selectedPiece = null;
+            legalSquares.length = 0;
+        }
+    } else if (pieceOnSquare) {
+        const pieceColor = pieceOnSquare.getAttribute("color");
+        const isPlayerTurn = isMultiplayer ? (myColor === turnPlayerColor) :
+                             (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
+                             
+        if (isPlayerTurn && ((turnPlayerColor === "white" && pieceColor === "white") || (turnPlayerColor === "black" && pieceColor === "black"))) {
+            selectedPiece = pieceOnSquare;
+            legalSquares = getLegalMovesForPiece(clickedSquareId, pieceOnSquare);
+        }
+    }
 }
 
 /**
- * Checks the current game status and displays alerts.
+ * Allows a drop operation to occur on a valid drop target.
+ */
+function allowDrop(event) {
+    event.preventDefault();
+}
+
+/**
+ * Handles the start of a drag operation for a chess piece.
+ */
+function drag(ev) {
+    const piece = ev.target.closest('.piece');
+    if (!piece) return;
+    const pieceColor = piece.getAttribute("color");
+
+    let turnPlayerColor = isWhiteTurn ? 'white' : 'black';
+    if (isMultiplayer) {
+        turnPlayerColor = turnColor;
+    }
+
+    const isPlayerTurn = isMultiplayer ? (myColor === turnPlayerColor) :
+                         (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
+
+    if (isPlayerTurn && ((turnPlayerColor === "white" && pieceColor === "white") || (turnPlayerColor === "black" && pieceColor === "black"))) {
+        selectedPiece = piece;
+        ev.dataTransfer.setData("text", piece.id);
+        const startingSquareId = piece.parentNode.id;
+        legalSquares = getLegalMovesForPiece(startingSquareId, piece);
+    } else {
+        ev.preventDefault();
+    }
+}
+
+/**
+ * Handles the drop of a piece onto a square.
+ */
+function drop(ev) {
+    ev.preventDefault();
+    const data = ev.dataTransfer.getData("text");
+    const pieceElement = document.getElementById(data);
+    const destinationSquare = ev.currentTarget;
+    const destinationSquareId = destinationSquare.id;
+    const originalSquareId = pieceElement.parentNode.id;
+
+    if (legalSquares.includes(destinationSquareId)) {
+        performMove(originalSquareId, destinationSquareId);
+        selectedPiece = null;
+        legalSquares.length = 0;
+    } else {
+        console.log("Illegal move!");
+        legalSquares.length = 0;
+    }
+}
+
+/**
+ * Helper function to perform a move based on a move string (e.g., 'e2e4').
+ */
+function playBestMove(bestMove) {
+    if (!bestMove || bestMove === '(none)') {
+        console.log("Engine returned no move.");
+        return;
+    }
+    const startingSquareId = bestMove.substring(0, 2);
+    const destinationSquareId = bestMove.substring(2, 4);
+    let promotedTo = "";
+    if (bestMove.length === 5) {
+        promotedTo = bestMove.substring(4, 5);
+        let pieceMap = { "q": "queen", "r": "rook", "b": "bishop", "n": "knight" };
+        promotedTo = pieceMap[promotedTo];
+    }
+    performMove(startingSquareId, destinationSquareId, promotedTo);
+}
+
+/**
+ * Performs the actual move on the internal board state and updates the DOM.
+ */
+function performMove(startingSquareId, destinationSquareId, promotedTo = "") {
+    const [fromRow, fromCol] = squareIdToCoords(startingSquareId);
+    const [toRow, toCol] = squareIdToCoords(destinationSquareId);
+
+    const piece = board[fromRow][fromCol];
+    if (!piece) return;
+
+    const pieceType = piece.type;
+    const pieceColor = piece.color;
+    const prevEnPassantTargetSquare = enPassantTargetSquare;
+
+    if (pieceType === 'king' && Math.abs(fromCol - toCol) === 2) {
+        let rookFromCol, rookToCol;
+        if (toCol === 6) { rookFromCol = 7; rookToCol = 5; }
+        else if (toCol === 2) { rookFromCol = 0; rookToCol = 3; }
+        board[toRow][toCol] = board[fromRow][fromCol];
+        board[fromRow][fromCol] = null;
+        board[toRow][rookToCol] = board[toRow][rookFromCol];
+        board[toRow][rookFromCol] = null;
+        if (pieceColor === 'white') {
+            hasWhiteKingMoved = true;
+            if (rookFromCol === 7) hasWhiteKingsideRookMoved = true;
+            else if (rookFromCol === 0) hasWhiteQueensideRookMoved = true;
+        } else {
+            hasBlackKingMoved = true;
+            if (rookFromCol === 7) hasBlackKingsideRookMoved = true;
+            else if (rookFromCol === 0) hasBlackQueensideRookMoved = true;
+        }
+    } 
+    else if (pieceType === 'pawn' && destinationSquareId === prevEnPassantTargetSquare) {
+        const capturedPawnRow = fromRow;
+        const capturedPawnCol = toCol;
+        board[capturedPawnRow][capturedPawnCol] = null;
+        board[toRow][toCol] = board[fromRow][fromCol];
+        board[fromRow][fromCol] = null;
+    } 
+    else if (pieceType === 'pawn' && (toRow === 0 || toRow === 7) && promotedTo !== "") {
+        board[toRow][toCol] = { type: promotedTo, color: pieceColor };
+        board[fromRow][fromCol] = null;
+    }
+    else {
+        board[toRow][toCol] = board[fromRow][fromCol];
+        board[fromRow][fromCol] = null;
+        if (pieceType === 'king') {
+            if (pieceColor === 'white') hasWhiteKingMoved = true;
+            else hasBlackKingMoved = true;
+        } else if (pieceType === 'rook') {
+            if (pieceColor === 'white') {
+                if (fromCol === 7 && fromRow === 7) hasWhiteKingsideRookMoved = true;
+                else if (fromCol === 0 && fromRow === 7) hasWhiteQueensideRookMoved = true;
+            } else {
+                if (fromCol === 7 && fromRow === 0) hasBlackKingsideRookMoved = true;
+                else if (fromCol === 0 && fromRow === 0) hasBlackQueensideRookMoved = true;
+            }
+        }
+    }
+
+    if (pieceType === 'pawn' && Math.abs(fromRow - toRow) === 2) {
+        enPassantTargetSquare = coordsToSquareId(fromRow + (toRow - fromRow) / 2, toCol);
+    } else {
+        enPassantTargetSquare = null;
+    }
+
+    renderBoard();
+    
+    // Check for pawn promotion
+    if (pieceType === 'pawn' && (toRow === 0 || toRow === 7) && !promotedTo) {
+        pawnPromotionTargetSquareId = destinationSquareId;
+        showPromotionUI(pieceColor);
+        return;
+    }
+
+    finalizeMove(startingSquareId, destinationSquareId, promotedTo);
+}
+
+/**
+ * Checks if a square is occupied and by what color on the internal board.
+ */
+function isSquareOccupied(rowIndex, colIndex, boardState = board) {
+    if (rowIndex < 0 || rowIndex > 7 || colIndex < 0 || colIndex > 7) {
+        return "out-of-bounds";
+    }
+    const piece = boardState[rowIndex][colIndex];
+    return piece ? piece.color : "blank";
+}
+
+/**
+ * Simulates a move on a temporary board state.
+ */
+function simulateMove(fromRow, fromCol, toRow, toCol, currentBoard, isEnPassantCapture = false) {
+    const simulatedBoard = currentBoard.map(row => row.slice());
+    const piece = simulatedBoard[fromRow][fromCol];
+    simulatedBoard[toRow][toCol] = piece;
+    simulatedBoard[fromRow][fromCol] = null;
+    if (isEnPassantCapture) {
+        const capturedPawnRow = fromRow;
+        const capturedPawnCol = toCol;
+        simulatedBoard[capturedPawnRow][capturedPawnCol] = null;
+    }
+    return simulatedBoard;
+}
+
+/**
+ * Finds the king's position for a given color on a board state.
+ */
+function findKing(kingColor, boardState) {
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const piece = boardState[r][c];
+            if (piece && piece.type === 'king' && piece.color === kingColor) {
+                return [r, c];
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Checks if a king of a given color is in check on a specific board state.
+ */
+function isKingInCheck(kingColor, boardState) {
+    const kingCoords = findKing(kingColor, boardState);
+    if (!kingCoords) return false;
+    const [kingRow, kingCol] = kingCoords;
+    const opponentColor = kingColor === 'white' ? 'black' : 'white';
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const piece = boardState[r][c];
+            if (piece && piece.color === opponentColor) {
+                const pseudoLegalMoves = getPseudoLegalMoves(r, c, piece.type, piece.color, boardState, true);
+                if (pseudoLegalMoves.some(move => move[0] === kingRow && move[1] === kingCol)) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * Calculates all pseudo-legal moves for a piece (moves according to piece rules).
+ */
+function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardState, forCheckValidation = false) {
+    let moves = [];
+    const addMove = (r, c) => {
+        if (r >= 0 && r <= 7 && c >= 0 && c <= 7) {
+            moves.push([r, c]);
+        }
+    };
+    const checkAndAddSlidingMove = (r, c) => {
+        if (r < 0 || r > 7 || c < 0 || c > 7) return 'stop';
+        const targetContent = isSquareOccupied(r, c, boardState);
+        if (targetContent === 'blank') {
+            addMove(r, c);
+            return 'continue';
+        } else if (targetContent !== pieceColor) {
+            addMove(r, c);
+            return 'stop';
+        } else {
+            return 'stop';
+        }
+    };
+    switch (pieceType) {
+        case 'pawn':
+            const direction = (pieceColor === "white") ? -1 : 1;
+            const startRankRow = (pieceColor === "white") ? 6 : 1;
+            const enPassantRank = (pieceColor === "white") ? 3 : 4;
+            let nextRow = startRow + direction;
+            if (isSquareOccupied(nextRow, startCol, boardState) === "blank") {
+                addMove(nextRow, startCol);
+                if (startRow === startRankRow) {
+                    let twoStepsRow = startRow + (2 * direction);
+                    if (isSquareOccupied(twoStepsRow, startCol, boardState) === "blank") {
+                        addMove(twoStepsRow, startCol);
+                    }
+                }
+            }
+            const captureCols = [startCol - 1, startCol + 1];
+            for (const c of captureCols) {
+                const targetContent = isSquareOccupied(nextRow, c, boardState);
+                if (targetContent !== "blank" && targetContent !== pieceColor) {
+                    addMove(nextRow, c);
+                }
+            }
+            if (startRow === enPassantRank && enPassantTargetSquare !== null) {
+                for (const c of captureCols) {
+                    const targetSquareId = coordsToSquareId(nextRow, c);
+                    if (targetSquareId === enPassantTargetSquare) {
+                        const pawnBesideRow = startRow;
+                        const pawnBesideCol = c;
+                        const pieceBeside = boardState[pawnBesideRow][pawnBesideCol];
+                        if (pieceBeside && pieceBeside.type === 'pawn' && pieceBeside.color !== pieceColor) {
+                            addMove(nextRow, c);
+                        }
+                    }
+                }
+            }
+            break;
+        case 'knight':
+            const knightMoves = [
+                [-2, -1], [-2, 1], [-1, -2], [-1, 2],
+                [1, -2], [1, 2], [2, -1], [2, 1]
+            ];
+            knightMoves.forEach(([dr, dc]) => {
+                const newRow = startRow + dr;
+                const newCol = startCol + dc;
+                const targetContent = isSquareOccupied(newRow, newCol, boardState);
+                if (targetContent === "blank" || targetContent !== pieceColor) {
+                    addMove(newRow, newCol);
+                }
+            });
+            break;
+        case 'rook':
+            const rookDirections = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            rookDirections.forEach(([dr, dc]) => {
+                for (let i = 1; i < 8; i++) {
+                    const newRow = startRow + dr * i;
+                    const newCol = startCol + dc * i;
+                    const result = checkAndAddSlidingMove(newRow, newCol);
+                    if (result === 'stop') break;
+                }
+            });
+            break;
+        case 'bishop':
+            const bishopDirections = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+            bishopDirections.forEach(([dr, dc]) => {
+                for (let i = 1; i < 8; i++) {
+                    const newRow = startRow + dr * i;
+                    const newCol = startCol + dc * i;
+                    const result = checkAndAddSlidingMove(newRow, newCol);
+                    if (result === 'stop') break;
+                }
+            });
+            break;
+        case 'queen':
+            const queenDirections = [
+                [-1, 0], [1, 0], [0, -1], [0, 1],
+                [-1, -1], [-1, 1], [1, -1], [1, 1]
+            ];
+            queenDirections.forEach(([dr, dc]) => {
+                for (let i = 1; i < 8; i++) {
+                    const newRow = startRow + dr * i;
+                    const newCol = startCol + dc * i;
+                    const result = checkAndAddSlidingMove(newRow, newCol);
+                    if (result === 'stop') break;
+                }
+            });
+            break;
+        case 'king':
+            const kingMoves = [
+                [-1, -1], [-1, 0], [-1, 1],
+                [0, -1], [0, 1],
+                [1, -1], [1, 0], [1, 1]
+            ];
+            kingMoves.forEach(([dr, dc]) => {
+                const newRow = startRow + dr;
+                const newCol = startCol + dc;
+                const targetContent = isSquareOccupied(newRow, newCol, boardState);
+                if (targetContent === "blank" || targetContent !== pieceColor) {
+                    addMove(newRow, newCol);
+                }
+            });
+            const kingRow = (pieceColor === 'white') ? 7 : 0;
+            const kingMovedFlag = (pieceColor === 'white') ? hasWhiteKingMoved : hasBlackKingMoved;
+            if (!kingMovedFlag && startRow === kingRow && startCol === 4) {
+                const kingsideRookMovedFlag = (pieceColor === 'white') ? hasWhiteKingsideRookMoved : hasBlackKingsideRookMoved;
+                const kingsideRookCol = 7;
+                if (!kingsideRookMovedFlag && boardState[kingRow][5] === null && boardState[kingRow][6] === null &&
+                    boardState[kingRow][kingsideRookCol] && boardState[kingRow][kingsideRookCol].type === 'rook' && boardState[kingRow][kingsideRookCol].color === pieceColor) {
+                    const pathClearAndSafe =
+                        !isKingInCheck(pieceColor, boardState) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState)) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState));
+                    if (pathClearAndSafe) {
+                        addMove(kingRow, 6);
+                    }
+                }
+                const queensideRookMovedFlag = (pieceColor === 'white') ? hasWhiteQueensideRookMoved : hasBlackQueensideRookMoved;
+                const queensideRookCol = 0;
+                if (!queensideRookMovedFlag && boardState[kingRow][1] === null && boardState[kingRow][2] === null && boardState[kingRow][3] === null &&
+                    boardState[kingRow][queensideRookCol] && boardState[kingRow][queensideRookCol].type === 'rook' && boardState[kingRow][queensideRookCol].color === pieceColor) {
+                    const pathClearAndSafe =
+                        !isKingInCheck(pieceColor, boardState) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState)) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState));
+                    if (pathClearAndSafe) {
+                        addMove(kingRow, 2);
+                    }
+                }
+            }
+            break;
+    }
+    return moves;
+}
+
+/**
+ * Generates and filters legal moves for a piece, ensuring the king is not left in check.
+ */
+function getLegalMovesForPiece(startSquareId, pieceElement) {
+    const [startRow, startCol] = squareIdToCoords(startSquareId);
+    const pieceType = pieceElement.classList[1];
+    const pieceColor = pieceElement.getAttribute('color');
+    const pseudoLegalMoves = getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, board);
+    let filteredLegalMoves = [];
+    for (const [toRow, toCol] of pseudoLegalMoves) {
+        let simulatedBoard;
+        let isEnPassantCapture = false;
+        if (pieceType === 'pawn' && coordsToSquareId(toRow, toCol) === enPassantTargetSquare) {
+            const pawnBesideRow = startRow;
+            const pawnBesideCol = toCol;
+            const pieceBeside = board[pawnBesideRow][pawnBesideCol];
+            if (pieceBeside && pieceBeside.type === 'pawn' && pieceBeside.color !== pieceColor) {
+                isEnPassantCapture = true;
+            }
+        }
+        simulatedBoard = simulateMove(startRow, startCol, toRow, toCol, board, isEnPassantCapture);
+        if (!isKingInCheck(pieceColor, simulatedBoard)) {
+            filteredLegalMoves.push(coordsToSquareId(toRow, toCol));
+        }
+    }
+    return filteredLegalMoves;
+}
+
+/**
+ * Checks the current game status (check, checkmate, stalemate).
  */
 function checkGameStatus() {
-    if (game.in_checkmate()) {
-        showAlert(`${turnColor === 'white' ? 'Black' : 'White'} wins by checkmate!`);
-        allowMovement = false;
-    } else if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition() || game.insufficient_material()) {
-        showAlert("Game ended in a draw!");
-        allowMovement = false;
-    } else if (game.in_check()) {
-        showAlert(`${turnColor === 'white' ? 'White' : 'Black'} is in check!`);
+    const currentPlayerColor = isWhiteTurn ? 'white' : 'black';
+    const opponentPlayerColor = isWhiteTurn ? 'black' : 'white';
+    const kingInCheck = isKingInCheck(currentPlayerColor, board);
+    let hasLegalMoves = false;
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const piece = board[r][c];
+            if (piece && piece.color === currentPlayerColor) {
+                const pieceSquareId = coordsToSquareId(r, c);
+                const dummyPieceElement = {
+                    classList: [null, piece.type],
+                    getAttribute: (attr) => attr === 'color' ? piece.color : null
+                };
+                const legalMovesForThisPiece = getLegalMovesForPiece(pieceSquareId, dummyPieceElement);
+                if (legalMovesForThisPiece.length > 0) {
+                    hasLegalMoves = true;
+                    break;
+                }
+            }
+        }
+        if (hasLegalMoves) break;
+    }
+    if (kingInCheck && !hasLegalMoves) {
+        showMessage(`Checkmate! ${opponentPlayerColor.toUpperCase()} wins!`);
+        allowMovement = false; // End the game
+    } else if (!kingInCheck && !hasLegalMoves) {
+        showMessage("Stalemate! It's a draw.");
+        allowMovement = false; // End the game
+    } else if (kingInCheck) {
+        showMessage(`${currentPlayerColor.toUpperCase()} is in check!`);
+    } else {
+        clearMessage();
     }
 }
 
 /**
- * Initializes evaluation elements and displays the current evaluation.
+ * Displays a message box on the screen.
  */
+function showMessage(msg) {
+    let messageBox = document.getElementById('message-box');
+    if (!messageBox) {
+        messageBox = document.createElement('div');
+        messageBox.id = 'message-box';
+        Object.assign(messageBox.style, {
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: '#333',
+            color: 'white',
+            padding: '10px 20px',
+            borderRadius: '8px',
+            zIndex: '1000',
+            fontSize: '1.2em',
+            textAlign: 'center',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+        });
+        document.body.appendChild(messageBox);
+    }
+    messageBox.textContent = msg;
+    messageBox.style.display = 'block';
+}
+
+/**
+ * Hides the message box.
+ */
+function clearMessage() {
+    const messageBox = document.getElementById('message-box');
+    if (messageBox) {
+        messageBox.style.display = 'none';
+    }
+}
+
+/**
+ * Shows the pawn promotion UI.
+ */
+function showPromotionUI(pawnColor) {
+    promotionChoices.innerHTML = '';
+    const promotionPieces = ['queen', 'rook', 'bishop', 'knight'];
+    promotionPieces.forEach(pieceType => {
+        const choiceDiv = document.createElement('div');
+        choiceDiv.classList.add('promotion-choice');
+        choiceDiv.dataset.pieceType = pieceType;
+        choiceDiv.addEventListener('click', () => selectPromotionPiece(pieceType, pawnColor));
+        const pieceImg = document.createElement('img');
+        pieceImg.src = `${pawnColor}-${pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}.png`;
+        pieceImg.alt = `${pawnColor} ${pieceType}`;
+        choiceDiv.appendChild(pieceImg);
+        promotionChoices.appendChild(choiceDiv);
+    });
+    promotionOverlay.classList.add('active');
+}
+
+/**
+ * Handles the selection of a promotion piece.
+ */
+function selectPromotionPiece(selectedType, pawnColor) {
+    promotionOverlay.classList.remove('active');
+    const [row, col] = squareIdToCoords(pawnPromotionTargetSquareId);
+    board[row][col] = {
+        type: selectedType,
+        color: pawnColor
+    };
+    renderBoard();
+    
+    // In multiplayer, send the move with promotion info
+    if (isMultiplayer) {
+        sendMoveToServer(selectedPiece.parentElement.id, pawnPromotionTargetSquareId, selectedType.charAt(0));
+    }
+    
+    pawnPromotionTargetSquareId = null;
+    finalizeMove();
+}
+
+/**
+ * Finalizes a move: toggles turn, clears legal squares, checks game status, and updates evaluation.
+ */
+function finalizeMove(startSquare, endSquare, promotedTo = '') {
+    // Multiplayer logic
+    if (isMultiplayer) {
+        // Send the move to the server if it's our turn
+        if (turnColor === myColor) {
+            sendMoveToServer(startSquare, endSquare, promotedTo);
+        }
+        
+        turnColor = turnColor === 'white' ? 'black' : 'white';
+        allowMovement = myColor === turnColor;
+        updateTurnIndicator();
+        checkGameStatus();
+        
+    } else {
+        // Single player logic
+        isWhiteTurn = !isWhiteTurn;
+        legalSquares.length = 0;
+        checkGameStatus();
+        const currentFEN = generateFEN(board);
+        getEvaluation(currentFEN, displayEvaluation);
+
+        const isEngineTurn = (isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn);
+        if (isEngineTurn) {
+            getBestMove(currentFEN, playBestMove);
+        }
+    }
+}
+
+/**
+ * Updates the turn indicator on the UI.
+ */
+function updateTurnIndicator() {
+    turnIndicator.textContent = `${turnColor.charAt(0).toUpperCase() + turnColor.slice(1)}'s Turn`;
+    document.body.style.backgroundColor = turnColor === 'white' ? '#f0f0f0' : '#333';
+}
+
+/**
+ * Updates the player info display on the UI.
+ */
+function updatePlayerInfo() {
+    playerInfo.textContent = `You are ${myColor} - playing against ${opponentUsername}`;
+}
+
+/**
+ * Generates a FEN (Forsyth-Edwards Notation) string from the current board state.
+ */
+function generateFEN(boardState) {
+    let fen = '';
+    for (let r = 0; r < 8; r++) {
+        let emptyCount = 0;
+        for (let c = 0; c < 8; c++) {
+            const piece = boardState[r][c];
+            if (piece === null) {
+                emptyCount++;
+            } else {
+                if (emptyCount > 0) {
+                    fen += emptyCount;
+                    emptyCount = 0;
+                }
+                let pieceChar = '';
+                switch (piece.type) {
+                    case 'pawn': pieceChar = 'p'; break;
+                    case 'knight': pieceChar = 'n'; break;
+                    case 'bishop': pieceChar = 'b'; break;
+                    case 'rook': pieceChar = 'r'; break;
+                    case 'queen': pieceChar = 'q'; break;
+                    case 'king': pieceChar = 'k'; break;
+                }
+                fen += (piece.color === 'white' ? pieceChar.toUpperCase() : pieceChar);
+            }
+        }
+        if (emptyCount > 0) {
+            fen += emptyCount;
+        }
+        if (r < 7) {
+            fen += '/';
+        }
+    }
+    fen += ' ' + (isWhiteTurn ? 'w' : 'b');
+    let castling = '';
+    if (!hasWhiteKingMoved) {
+        if (!hasWhiteKingsideRookMoved) castling += 'K';
+        if (!hasWhiteQueensideRookMoved) castling += 'Q';
+    }
+    if (!hasBlackKingMoved) {
+        if (!hasBlackKingsideRookMoved) castling += 'k';
+        if (!hasBlackQueensideRookMoved) castling += 'q';
+    }
+    fen += ' ' + (castling === '' ? '-' : castling);
+    fen += ' ' + (enPassantTargetSquare || '-');
+    fen += ' 0 1';
+    return fen;
+}
+
+/**
+ * Gets the best move from Stockfish engine based on the current board state.
+ */
+function getBestMove(fen, callback) {
+    if (isMultiplayer) return; // Disable in multiplayer
+    if (!stockfishWorker) {
+        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
+        stockfishWorker.onmessage = function (event) {
+            let message = event.data;
+            if (message.startsWith("bestmove")) {
+                const bestMove = message.split(" ")[1];
+                stockfishWorker.removeEventListener('message', listener);
+                callback(bestMove);
+            }
+        };
+        stockfishWorker.onerror = function(error) {
+            console.error("Stockfish Worker Error:", error);
+        };
+        stockfishWorker.postMessage("uci");
+        stockfishWorker.postMessage("isready");
+        stockfishWorker.postMessage("setoption name multipv value 3");
+    }
+    stockfishWorker.postMessage("position fen " + fen);
+    const depth = Math.max(1, Math.min(20, selectedLevel * 2)); // Dynamic depth based on level
+    stockfishWorker.postMessage(`go depth ${depth}`);
+    const listener = function(event) {
+        const message = event.data;
+        if (message.startsWith("bestmove")) {
+            const bestMove = message.split(" ")[1];
+            stockfishWorker.removeEventListener('message', listener);
+            callback(bestMove);
+        }
+    };
+    stockfishWorker.addEventListener('message', listener);
+}
+
+/**
+ * Gets evaluation from Stockfish worker.
+ */
+function getEvaluation(fen, callback) {
+    if (isMultiplayer) return; // Disable in multiplayer
+    if (!stockfishWorker) {
+        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
+        stockfishWorker.onmessage = function (event) {
+            let message = event.data;
+            if (message.startsWith("info depth 10")) {
+                let multipvIndex = message.indexOf("multipv");
+                if (multipvIndex !== -1) {
+                    let multipvString = message.slice(multipvIndex).split(" ")[1];
+                    let multipv = parseInt(multipvString) || 1;
+                    while (evaluations.length < 3) evaluations.push(null);
+                    while (lines.length < 3) lines.push("");
+                    while (scoreStrings.length < 3) scoreStrings.push(null);
+                    let scoreIndex = message.indexOf("score cp");
+                    let pvIndex = message.indexOf("pv");
+                    if (scoreIndex !== -1) {
+                        scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
+                        let evaluation = parseInt(scoreStrings[multipv - 1]) / 100 || 0;
+                        evaluation = isWhiteTurn ? evaluation : -evaluation;
+                        evaluations[multipv - 1] = evaluation;
+                    } else {
+                        scoreIndex = message.indexOf("score mate");
+                        scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
+                        let evaluation = parseInt(scoreStrings[multipv - 1]) || 0;
+                        evaluations[multipv - 1] = "#" + Math.abs(evaluation);
+                    }
+                    if (pvIndex !== -1) {
+                        let pvString = message.slice(pvIndex + 3).trim();
+                        lines[multipv - 1] = pvString;
+                    }
+                    if (multipv === 3) {
+                        callback(lines, evaluations, scoreStrings);
+                        evaluations = [];
+                        lines = [];
+                        scoreStrings = [];
+                    }
+                }
+            }
+        };
+        stockfishWorker.onerror = function(error) {
+            console.error("Stockfish Worker Error:", error);
+        };
+        stockfishWorker.postMessage("uci");
+        stockfishWorker.postMessage("isready");
+        stockfishWorker.postMessage("setoption name multipv value 3");
+    }
+    stockfishWorker.postMessage("ucinewgame");
+    stockfishWorker.postMessage("position fen " + fen);
+    stockfishWorker.postMessage("go depth 10"); // Fixed depth for evaluation
+}
+
 function initializeEvaluationElements() {
     evaluationElements = {
         blackBar: document.querySelector(".blackBar"),
@@ -394,41 +1187,89 @@ function initializeEvaluationElements() {
     }
 }
 
-function displayEvaluation() {
-    if (!evaluationElements) initializeEvaluationElements();
-    if (evaluationElements.blackBar) {
-        updateEvaluationBar();
-        updateEvaluationText();
-        updateEvaluationLines();
+function displayEvaluation(lines, evaluations, scoreString) {
+    if (isMultiplayer) return; // Disable in multiplayer
+    if (!evaluationElements) {
+        initializeEvaluationElements();
+    }
+    if (!Array.isArray(evaluations) || evaluations.length === 0) {
+        return false;
+    }
+    try {
+        let evaluation = evaluations[0];
+        if (evaluation === null || evaluation === undefined) {
+            evaluation = 0;
+        }
+        scoreString = (typeof scoreString === 'string') ? scoreString.trim() : '0';
+        if (!scoreString) scoreString = '0';
+        updateEvaluationBar(evaluation, scoreString);
+        updateEvaluationLines(lines, evaluations);
+        updateEvaluationText(evaluation, scoreString);
+        return true;
+    } catch (error) {
+        console.error("Error in displayEvaluation:", error);
+        return false;
     }
 }
-
-function updateEvaluationBar() {
-    if (evaluationElements.blackBar && evaluationElements.evalNum) {
-        const clampedEval = Math.max(-10, Math.min(10, evaluation));
-        const barWidth = 100 * (clampedEval + 10) / 20;
-        evaluationElements.blackBar.style.width = `${barWidth}%`;
-        evaluationElements.evalNum.textContent = evaluation.toFixed(2);
+function updateEvaluationBar(evaluation, scoreString) {
+    const { blackBar, evalNum } = evaluationElements;
+    if (typeof evaluation === 'number') {
+        const clampedEval = Math.max(-15, Math.min(15, evaluation));
+        const blackBarHeight = 50 - (clampedEval / 15 * 100);
+        const finalHeight = Math.max(0, Math.min(100, blackBarHeight));
+        blackBar.style.height = finalHeight + "%";
+        evalNum.textContent = clampedEval.toFixed(2);
+    } else if (typeof evaluation === 'string' && evaluation.startsWith('#')) {
+        const scoreValue = parseInt(scoreString) || 0;
+        const isWhiteWinning = (scoreValue > 0 && isWhiteTurn) || (scoreValue < 0 && !isWhiteTurn);
+        blackBar.style.height = isWhiteWinning ? '0%' : '100%';
+        evalNum.textContent = evaluation;
     }
 }
-
-function updateEvaluationText() {
-    if (evaluationElements.evalMain && evaluationElements.evalText) {
-        evaluationElements.evalMain.textContent = "Evaluation";
-        evaluationElements.evalText.textContent = evaluation.toFixed(2);
-    }
-}
-
-function updateEvaluationLines() {
-    if (stockfishWorker && evaluationElements.evalLines && evaluationElements.lineElements) {
-        // Placeholder for multi-PV lines
-        for (let i = 0; i < 3; i++) {
-            evaluationElements.evalLines[i].textContent = `Line ${i + 1}: +0.00`;
-            evaluationElements.lineElements[i].textContent = "1. e4 e5";
+function updateEvaluationLines(lines, evaluations) {
+    const maxLines = Math.min(lines.length, evaluations.length, 3);
+    for (let i = 0; i < 3; i++) {
+        const evalElement = evaluationElements.evalLines[i];
+        const lineElement = evaluationElements.lineElements[i];
+        if (evalElement && lineElement) {
+            if (i < maxLines && evaluations[i] !== undefined) {
+                evalElement.textContent = evaluations[i].toString();
+                lineElement.textContent = (lines[i] || '').trim();
+            } else {
+                evalElement.textContent = '';
+                lineElement.textContent = '';
+            }
         }
     }
 }
-
-// Initialize the game on load
-initializeStockfish();
-setGameMode('singlePlayer'); // Default to single-player mode
+function updateEvaluationText(evaluation, scoreString) {
+    const { evalMain, evalText } = evaluationElements;
+    if (!evalMain || !evalText) return;
+    evalMain.textContent = evaluation !== undefined ? evaluation.toString() : '';
+    if (typeof evaluation === 'string' && evaluation.includes('#')) {
+        const mateInMoves = Math.abs(parseInt(evaluation.slice(1)) || 0);
+        const scoreValue = parseInt(scoreString) || 0;
+        const isWhiteWinning = (scoreValue > 0 && isWhiteTurn) || (scoreValue < 0 && !isWhiteTurn);
+        const winningColor = isWhiteWinning ? "White" : "Black";
+        evalText.textContent = `${winningColor} can mate in ${mateInMoves} moves`;
+    } else if (typeof evaluation === 'number') {
+        const absEval = Math.abs(evaluation);
+        if (absEval < 0.5) {
+            evalText.textContent = "Equal";
+        } else if (evaluation >= 0.5 && evaluation < 1) {
+            evalText.textContent = "White is slightly better";
+        } else if (evaluation <= -0.5 && evaluation > -1) {
+            evalText.textContent = "Black is slightly better";
+        } else if (evaluation >= 1 && evaluation < 2) {
+            evalText.textContent = "White is significantly better";
+        } else if (evaluation <= -1 && evaluation > -2) {
+            evalText.textContent = "Black is significantly better";
+        } else if (evaluation >= 2) {
+            evalText.textContent = "White is winning!";
+        } else if (evaluation <= -2) {
+            evalText.textContent = "Black is winning!";
+        }
+    } else {
+        evalText.textContent = "Unknown";
+    }
+}
