@@ -523,8 +523,10 @@ function updateEvaluationBar() {
         const normalizedEval = (clampedEvaluation + 10) / 20;
 
         // Calculate heights for white and black fills
-        const whiteHeightPercentage = normalizedEval * 100;
-        const blackHeightPercentage = (1 - normalizedEval) * 100;
+        // White fill grows from top (0% to 100% for white advantage)
+        // Black fill grows from bottom (100% to 0% for black advantage)
+        const whiteHeightPercentage = normalizedEval * 100; // 0% at -10, 100% at +10
+        const blackHeightPercentage = (1 - normalizedEval) * 100; // 100% at -10, 0% at +10
 
         // Adjust displayed evaluation based on player's color for their perspective
         let displayEvaluation = evaluation;
@@ -534,19 +536,22 @@ function updateEvaluationBar() {
         evaluationText.textContent = `Evaluation: ${displayEvaluation.toFixed(2)}`;
 
         // Apply calculated heights to the fill elements
+        // White fill starts from top, black fill starts from bottom
         whiteFill.style.height = `${whiteHeightPercentage}%`;
+        whiteFill.style.top = '0'; // Anchor white fill at the top
         blackFill.style.height = `${blackHeightPercentage}%`;
+        blackFill.style.bottom = '0'; // Anchor black fill at the bottom
 
-        // Optional: Change color based on who has a significant advantage
+        // Set colors based on evaluation
         if (clampedEvaluation > 2) { // White has a significant advantage
-            whiteFill.style.backgroundColor = '#ffffffff'; // Green for white's advantage
-            blackFill.style.backgroundColor = '#000000ff'; // Default black color
+            whiteFill.style.backgroundColor = 'white'; // Solid white for white's advantage
+            blackFill.style.backgroundColor = 'black'; // Default black
         } else if (clampedEvaluation < -2) { // Black has a significant advantage
-            whiteFill.style.backgroundColor = '#ffffffff'; // Default white color
-            blackFill.style.backgroundColor = '#000000ff'; // Red for black's advantage
+            whiteFill.style.backgroundColor = 'white'; // Default white
+            blackFill.style.backgroundColor = 'black'; // Solid black for black's advantage
         } else { // Close game or slight advantage
-            whiteFill.style.backgroundColor = '#ffffffff'; // Default white
-            blackFill.style.backgroundColor = '#000000ff'; // Default black
+            whiteFill.style.backgroundColor = 'white'; // Default white
+            blackFill.style.backgroundColor = 'black'; // Default black
         }
     }
 }
