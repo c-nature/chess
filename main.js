@@ -539,14 +539,14 @@ function updateEvaluationBar() {
 
         // Optional: Change color based on who has a significant advantage
         if (clampedEvaluation > 2) { // White has a significant advantage
-            whiteFill.style.backgroundColor = '#000000ff'; // Green for white's advantage
-            blackFill.style.backgroundColor = '#ffffffff'; // Default black color
+            whiteFill.style.backgroundColor = '#fffefeff'; // Green for white's advantage
+            blackFill.style.backgroundColor = '#000000ff'; // Default black color
         } else if (clampedEvaluation < -2) { // Black has a significant advantage
-            whiteFill.style.backgroundColor = '#000000ff'; // Default white color
-            blackFill.style.backgroundColor = '#fdfdfdff'; // Red for black's advantage
+            whiteFill.style.backgroundColor = '#ffffffff'; // Default white color
+            blackFill.style.backgroundColor = '#000000ff'; // Red for black's advantage
         } else { // Close game or slight advantage
-            whiteFill.style.backgroundColor = '#000000ff'; // Default white
-            blackFill.style.backgroundColor = '#ffffffff'; // Default black
+            whiteFill.style.backgroundColor = '#ffffffff'; // Default white
+            blackFill.style.backgroundColor = '#000000ff'; // Default black
         }
     }
 }
