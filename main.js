@@ -733,7 +733,7 @@ function findKing(kingColor, boardState) {
 /**
  * Checks if a king of a given color is in check on a specific board state.
  */
-function isKingInCheck(kingColor, boardState) {
+function isKingInCheck(kingColor, boardState, forCheckValidation = false) {
     const kingCoords = findKing(kingColor, boardState);
     if (!kingCoords) return false;
     const [kingRow, kingCol] = kingCoords;
@@ -742,7 +742,7 @@ function isKingInCheck(kingColor, boardState) {
         for (let c = 0; c < 8; c++) {
             const piece = boardState[r][c];
             if (piece && piece.color === opponentColor) {
-                const pseudoLegalMoves = getPseudoLegalMoves(r, c, piece.type, piece.color, boardState, true);
+                const pseudoLegalMoves = getPseudoLegalMoves(r, c, piece.type, piece.color, boardState, forCheckValidation);
                 if (pseudoLegalMoves.some(move => move[0] === kingRow && move[1] === kingCol)) {
                     return true;
                 }
@@ -883,9 +883,9 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                 if (!kingsideRookMovedFlag && boardState[kingRow][5] === null && boardState[kingRow][6] === null &&
                     boardState[kingRow][kingsideRookCol] && boardState[kingRow][kingsideRookCol].type === 'rook' && boardState[kingRow][kingsideRookCol].color === pieceColor) {
                     const pathClearAndSafe =
-                        !isKingInCheck(pieceColor, boardState) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState)) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState));
+                        !isKingInCheck(pieceColor, boardState, true) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState), true) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState), true);
                     if (pathClearAndSafe) {
                         addMove(kingRow, 6);
                     }
@@ -895,9 +895,9 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                 if (!queensideRookMovedFlag && boardState[kingRow][1] === null && boardState[kingRow][2] === null && boardState[kingRow][3] === null &&
                     boardState[kingRow][queensideRookCol] && boardState[kingRow][queensideRookCol].type === 'rook' && boardState[kingRow][queensideRookCol].color === pieceColor) {
                     const pathClearAndSafe =
-                        !isKingInCheck(pieceColor, boardState) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState)) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState));
+                        !isKingInCheck(pieceColor, boardState, true) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState), true) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState), true);
                     if (pathClearAndSafe) {
                         addMove(kingRow, 2);
                     }
