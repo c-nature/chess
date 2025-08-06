@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Game</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Chessboard.js CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" xintegrity="sha384-Oxk79Enkd6QuKwsKVG3HTVqfdKxILtBckqgOqB+oY/D/beuLtmz7f+xL8N6/H/U6" crossorigin="anonymous">
 </head>
 <body>
     <div id="game-mode-selection" class="buttonContainer">
@@ -25,7 +27,11 @@
 
     <div id="topContainer" style="display: none;" class="top-container">
         <div class="evaluation-container" style="display: none;">
-            <div class="evaluation-bar"></div>
+            <!-- Updated structure for evaluation bar -->
+            <div class="eval-bar-container">
+                <div class="eval-fill-white"></div>
+                <div class="eval-fill-black"></div>
+            </div>
             <p class="evaluation-text">Evaluation: 0.00</p>
         </div>
         <button id="newGameBtn">New Game</button>
@@ -42,7 +48,8 @@
     </div>
 
     <div id="promotion-overlay" style="display: none;">
-        <div class="promotion-options">
+        <div class="promotion-choices">
+            <!-- Images will be updated dynamically based on player color -->
             <img src="white-Queen.png" alt="Queen" class="promotion-piece" data-piece="q">
             <img src="white-Rook.png" alt="Rook" class="promotion-piece" data-piece="r">
             <img src="white-Bishop.png" alt="Bishop" class="promotion-piece" data-piece="b">
@@ -50,9 +57,16 @@
         </div>
     </div>
 
-    <!-- Stockfish Web Worker -->
+    <!-- Chess.js library (for game logic) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js" xintegrity="sha384-95W+qC6+s9L8X6v0K6t8W0+1/P6f+xL8N6/H/U6" crossorigin="anonymous"></script>
+    <!-- Chessboard.js library (for board display) -->
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js" xintegrity="sha384-8XILBf+xL8N6/H/U6" crossorigin="anonymous"></script>
+
+    <!-- Stockfish Web Worker (local file) -->
     <script src="lib/stockfish-nnue-16.js"></script>
+    <!-- Your client script (if it exists and handles WebSocket) -->
     <script src="/client"></script>
+    <!-- Your main game logic -->
     <script src="main.js"></script>
 </body>
 </html>

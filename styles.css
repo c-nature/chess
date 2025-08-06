@@ -26,27 +26,28 @@ body {
 }
 
 /* Chess Board Styling */
-.chessBoard {
+#chessboard { /* Changed to ID selector as per HTML */
     width: 100%; /* Fluid width for responsiveness */
     max-width: 600px; /* Max width for the board */
     height: auto; /* Maintain aspect ratio */
     aspect-ratio: 1 / 1; /* Keep it square */
     margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(8, 1fr); /* 8 equal columns */
-    grid-template-rows: repeat(8, 1fr); /* 8 equal rows */
+    /* Chessboard.js handles grid layout, so these might not be strictly necessary here */
+    /* display: grid; */
+    /* grid-template-columns: repeat(8, 1fr); */
+    /* grid-template-rows: repeat(8, 1fr); */
     border-radius: 8px; /* Rounded corners for the board */
     overflow: hidden;
     border: 2px solid #333; /* Border for the board */
 }
 
-/* Flipped board for black player */
-.chessBoard.flipped {
+/* Flipped board for black player (handled by chessboard.js orientation) */
+/* .chessBoard.flipped {
     transform: rotate(180deg);
-}
+} */
 
-/* Individual Square Styling */
-.square {
+/* Individual Square Styling (handled by chessboard.js) */
+.square-55d63 { /* Chessboard.js square class */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -54,15 +55,15 @@ body {
     user-select: none; /* Prevent text selection */
 }
 
-.white {
+.white-1e1d7 { /* Chessboard.js white square class */
     background-color: #f0d9b5; /* Light square color */
 }
 
-.black {
+.black-3c85d { /* Chessboard.js black square class */
     background-color: #b58863; /* Dark square color */
 }
 
-/* Coordinates (a-h, 1-8) */
+/* Coordinates (a-h, 1-8) - Chessboard.js handles these */
 .coordinate {
     position: absolute;
     font-size: 12px;
@@ -71,65 +72,44 @@ body {
     z-index: 2; /* Ensure coordinates are above pieces when flipped */
 }
 
-.rank {
-    top: 4%;
-    right: 4%;
-    left: auto;
-}
-
-.file {
-    bottom: 4%;
-    left: 4%;
-    top: auto;
-    right: auto;
-}
-
-.whiteText {
-    color: #f0d9b5; /* Text color for white squares */
-}
-
-.blackText {
-    color: #b58863; /* Text color for black squares */
-}
-
-/* Piece Styling */
-.piece {
-    width: 90%; /* Slightly smaller than square to show background */
-    height: 90%;
+/* Piece Styling (handled by chessboard.js) */
+.piece-417db { /* Chessboard.js piece class */
+    width: 100%; /* Pieces should fill the square */
+    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: grab; /* Indicate draggable */
-    transition: transform 0.1s ease-out; /* Smooth transition for flips */
+    /* transition: transform 0.1s ease-out; */ /* Chessboard.js handles animations */
 }
 
-.piece img {
+.piece-417db img {
     max-width: 100%;
     height: auto;
     pointer-events: none; /* Prevent image drag interfering with piece drag */
-    transition: transform 0.1s ease-out; /* Smooth transition for flips */
+    /* transition: transform 0.1s ease-out; */ /* Chessboard.js handles animations */
 }
 
-/* Flipped pieces and coordinates */
-.chessBoard.flipped .piece {
+/* Flipped pieces and coordinates (handled by chessboard.js orientation) */
+/* .chessBoard.flipped .piece {
     transform: rotate(180deg);
 }
 .chessBoard.flipped .coordinate {
     transform: rotate(180deg);
-}
+} */
 
 
 /* Highlight for selected piece and legal moves */
-.square.selected {
+.square-55d63.selected { /* Updated class for selected square */
     box-shadow: inset 0 0 0 4px rgba(0, 255, 0, 0.7); /* Green border for selected */
 }
 
-.square.legal-move {
+.square-55d63.legal-move { /* Updated class for legal move square */
     background-color: rgba(0, 255, 0, 0.3); /* Transparent green for legal moves */
     box-shadow: inset 0 0 0 2px rgba(0, 255, 0, 0.7);
 }
 
-.square.legal-capture {
+.square-55d63.legal-capture { /* Updated class for legal capture square */
     box-shadow: inset 0 0 0 4px rgba(255, 0, 0, 0.7); /* Red border for captures */
 }
 
@@ -183,7 +163,7 @@ body {
     justify-content: center;
 }
 
-.promotion-choice {
+.promotion-piece { /* Changed from promotion-choice to match HTML */
     width: 80px; /* Fixed size for promotion pieces */
     height: 80px;
     border-radius: 8px;
@@ -193,16 +173,25 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #f0d9b5; /* Match white square color */
+    background-color: #f0d9b5; /* Default background */
 }
 
-.promotion-choice:hover {
+.promotion-piece.white-piece {
+    background-color: #f0d9b5; /* Light square color */
+}
+
+.promotion-piece.black-piece {
+    background-color: #b58863; /* Dark square color */
+}
+
+
+.promotion-piece:hover {
     transform: translateY(-5px);
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
     background-color: #539B0C; /* Green on hover */
 }
 
-.promotion-choice img {
+.promotion-piece img {
     max-width: 90%;
     height: auto;
 }
@@ -311,63 +300,42 @@ body {
     display: none; /* Hidden by default, shown for single player */
 }
 
-.eval-bar {
+.eval-bar-container { /* Updated class name */
     width: 30px;
     height: 200px; /* Fixed height for the bar */
-    background-color: #333; /* Black side */
+    background-color: #333; /* Default background, representing black's side */
     position: relative;
     border-radius: 5px;
     overflow: hidden;
     box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
 }
 
-.blackBar {
-    background-color: #f0d9b5; /* White side */
+.eval-fill-white { /* Updated class name */
+    background-color: #f0d9b5; /* White side color */
     width: 100%;
     position: absolute;
     bottom: 0; /* Starts from the bottom */
     transition: height 0.3s ease-out;
+    height: 50%; /* Initial state */
 }
 
-.eval-num {
+.eval-fill-black { /* Updated class name */
+    background-color: #b58863; /* Black side color */
+    width: 100%;
+    position: absolute;
+    top: 0; /* Starts from the top */
+    transition: height 0.3s ease-out;
+    height: 50%; /* Initial state */
+}
+
+.evaluation-text { /* Changed from eval-num to match HTML */
     font-size: 1.2em;
     font-weight: bold;
     color: #333;
 }
 
-.eval-text {
-    font-size: 0.9em;
-    color: #555;
-    text-align: center;
-}
-
-.eval-lines {
-    width: 100%;
-    font-size: 0.8em;
-    color: #666;
-}
-
-.eval-line {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 5px;
-    padding: 5px;
-    background-color: #f9f9f9;
-    border-radius: 3px;
-}
-
-.eval-line span {
-    flex: 1;
-    text-align: center;
-}
-
-.eval-line span:first-child {
-    font-weight: bold;
-    color: #333;
-}
-
 /* Multiplayer Join UI */
-#join {
+#joinDiv { /* Changed to ID selector as per HTML */
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -379,7 +347,7 @@ body {
     justify-content: center;
 }
 
-#join input {
+#joinDiv input {
     outline: none;
     height: 40px;
     padding: 0 10px;
@@ -390,7 +358,7 @@ body {
     box-sizing: border-box;
 }
 
-#join button {
+#joinDiv button {
     border: none;
     height: 45px;
     width: 150px;
@@ -403,7 +371,7 @@ body {
     transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
-#join button:hover {
+#joinDiv button:hover {
     background-color: #45a049;
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
@@ -494,8 +462,8 @@ body {
         margin-bottom: 0;
     }
 
-    .chessBoard {
-        width: 600px; /* Fixed width for board on larger screens */
+    #chessboard { /* Fixed width for board on larger screens */
+        width: 600px;
         height: 600px;
         max-width: 600px;
     }
@@ -541,11 +509,11 @@ body {
         padding: 8px;
     }
 
-    #join input {
+    #joinDiv input {
         width: 80%;
     }
 
-    #join button {
+    #joinDiv button {
         width: 120px;
     }
 }
