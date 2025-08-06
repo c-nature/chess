@@ -99,6 +99,7 @@ function startSinglePlayerGame() {
     multiplayerElements.forEach(el => el.classList.add('hidden'));
 
     newGame();
+    updatePlayerInfoSinglePlayer();
 }
 
 /**
@@ -337,6 +338,7 @@ function flipBoard() {
     if (isMultiplayer) return; // Disable in multiplayer
     chessBoard.classList.toggle('flipped');
     isEngineWhite = !isEngineWhite;
+    updatePlayerInfoSinglePlayer();
     renderBoard();
     if ((isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn)) {
         const currentFEN = generateFEN(board);
@@ -1050,6 +1052,7 @@ function finalizeMove(startSquare, endSquare, promotedTo = '') {
         if (isEngineTurn) {
             getBestMove(currentFEN, playBestMove);
         }
+        updatePlayerInfoSinglePlayer();
     }
 }
 
@@ -1066,6 +1069,15 @@ function updateTurnIndicator() {
  */
 function updatePlayerInfo() {
     playerInfo.textContent = `You are ${myColor} - playing against ${opponentUsername}`;
+}
+
+/**
+ * Updates the player info display for single player games.
+ */
+function updatePlayerInfoSinglePlayer() {
+    if (isMultiplayer) return;
+    const playerColor = isEngineWhite ? 'black' : 'white';
+    playerInfo.textContent = `You are playing as ${playerColor.charAt(0).toUpperCase() + playerColor.slice(1)}`;
 }
 
 /**
