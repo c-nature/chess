@@ -56,6 +56,19 @@ window.main = {
         }
     }
 };
+
+function initializeEvaluationElements() {
+    evaluationElements = {
+        whiteFill: document.querySelector('.eval-fill-white'),
+        blackFill: document.querySelector('.eval-fill-black'),
+        evaluationText: document.querySelector('.evaluation-text')
+    };
+    // Fallback check: Log if elements are missing
+    if (!evaluationElements.whiteFill || !evaluationElements.blackFill || !evaluationElements.evaluationText) {
+        console.warn("Some evaluation elements not found in DOM:", evaluationElements);
+    }
+}
+
 function setGameMode(mode) {
     gameMode = mode;
     gameModeSelectionDiv.style.display = 'none'; // Hide mode selection buttons
@@ -123,13 +136,6 @@ function initializeStockfish() {
         stockfishWorker.postMessage("setoption name multipv value 3"); // Request top 3 lines for potential display
     }
 }
-function initializeEvaluationElements() {
-    evaluationElements = {
-        whiteFill: document.querySelector('.eval-fill-white'),
-        blackFill: document.querySelector('.eval-fill-black'),
-        evaluationText: document.querySelector('.evaluation-text')
-    };
-}
 
 /**
  * Handles messages received from the Stockfish Web Worker.
@@ -152,6 +158,7 @@ function handleStockfishMessage(event) {
         const scoreIndex = infoParts.indexOf("score");
         if (scoreIndex !== -1 && infoParts[scoreIndex + 1] === "cp") {
             evaluation = parseFloat(infoParts[scoreIndex + 2]) / 100; // Convert centipawns to pawns
+            console.log("Raw Evaluation (pawns):", evaluation); // Debug log
             updateEvaluationBar();
         }
         // You could parse 'pv' (principal variation) here if you want to display AI's thought process
@@ -160,36 +167,6 @@ function handleStockfishMessage(event) {
         //     const pvMoves = infoParts.slice(pvIndex + 1);
         //     console.log("Principal Variation:", pvMoves.join(" "));
         // }
-    }
-}
-
-/**
- * Sets the game mode (single player or multiplayer) and updates UI visibility.
- * @param {string} mode - 'singlePlayer' or 'multiplayer'.
- */
-function setGameMode(mode) {
-    gameMode = mode;
-    gameModeSelectionDiv.style.display = 'none'; // Hide mode selection buttons
-
-    if (gameMode === 'singlePlayer') {
-        topContainer.style.display = 'flex'; // Show game controls and evaluation
-        evaluationContainer.style.display = 'flex';
-        joinDiv.style.display = 'none'; // Hide multiplayer join UI
-        gamePlayerInfo.style.display = 'none';
-        playerInfo.style.display = 'none';
-        gameContainer.style.display = 'flex'; // Show chessboard
-        myColor = 'white'; // Player is always white in single player
-        opponentColor = 'black'; // AI is always black
-        initializeStockfish(); // Initialize Stockfish when single player is selected
-        newGame(); // Start a new single player game
-    } else if (gameMode === 'multiplayer') {
-        topContainer.style.display = 'none'; // Hide single player controls
-        evaluationContainer.style.display = 'none';
-        joinDiv.style.display = 'flex'; // Show multiplayer join UI
-        gamePlayerInfo.style.display = 'flex';
-        playerInfo.style.display = 'flex';
-        gameContainer.style.display = 'none'; // Hide chessboard initially
-        // Multiplayer color will be assigned by the server via WebSocket
     }
 }
 
@@ -284,26 +261,6 @@ function resignGame() {
     showAlert(`${myColor} resigned. ${opponentColor} wins!`);
     allowMovement = false; // Disable further moves
 }
-function handleStockfishMessage(event) {
-    const message = event.data;
-    if (message.startsWith("bestmove")) {
-        const move = message.split(" ")[1];
-        if (move) {
-            const startSquare = move.substring(0, 2);
-            const endSquare = move.substring(2, 4);
-            const promotedTo = move.length > 4 ? move.substring(4, 5) : null;
-            makeMove(startSquare, endSquare, promotedTo);
-        }
-    } else if (message.startsWith("info")) {
-        const infoParts = message.split(" ");
-        const scoreIndex = infoParts.indexOf("score");
-        if (scoreIndex !== -1 && infoParts[scoreIndex + 1] === "cp") {
-            evaluation = parseFloat(infoParts[scoreIndex + 2]) / 100; // Convert centipawns to pawns
-            console.log("Raw Evaluation (pawns):", evaluation); // Debug log
-            updateEvaluationBar();
-        }
-    }
-}
 
 /**
  * Chessboard.js onDrop handler for drag-and-drop moves.
@@ -385,7 +342,6 @@ function makeMove(startSquare, endSquare, promotedTo) {
     // Now call handleMoveMade to update board, check status, and trigger AI if needed
     handleMoveMade(move);
 }
-
 
 /**
  * Handles click events on chessboard squares for click-to-move functionality.
@@ -493,7 +449,6 @@ function handleMoveMade(move) {
     checkGameStatus(); // Check for checkmate, draw, etc.
     updateEvaluationBar(); // Update the evaluation display
 }
-
 
 /**
  * Highlights legal moves on the board for a given square.
