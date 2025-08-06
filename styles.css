@@ -10,7 +10,44 @@ body {
     flex-direction: column;
 }
 
-/* --- New styles for Multiplayer Lobby --- */
+/* --- New styles for Mode Selection --- */
+.mode-selection-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 40px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.mode-buttons {
+    display: flex;
+    gap: 15px;
+}
+
+.mode-buttons button, .lobby-container button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.mode-buttons button:hover, .lobby-container button:hover {
+    background-color: #45a049;
+}
+
+.hidden {
+    display: none;
+}
+
+/* --- Multiplayer Lobby --- */
 .lobby-container {
     display: flex;
     flex-direction: column;
@@ -38,21 +75,6 @@ body {
     font-size: 16px;
 }
 
-.lobby-container button {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    background-color: #4CAF50;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.lobby-container button:hover {
-    background-color: #45a049;
-}
-
 .status-message {
     font-style: italic;
     color: #666;
@@ -75,11 +97,12 @@ body {
     border-bottom: 1px solid #eee;
 }
 
-.game-container.hidden {
-    display: none;
+/* --- Game UI --- */
+.game-container {
+    display: flex;
+    flex-direction: column;
 }
 
-/* --- Existing and modified styles for the Game UI --- */
 .top-container {
     display: flex;
     flex-wrap: wrap;
@@ -136,14 +159,6 @@ body {
     align-items: center;
     gap: 5px;
     margin-bottom: 5px;
-}
-
-.single-player-only, .multiplayer-only {
-    display: block;
-}
-
-.single-player-only.hidden, .multiplayer-only.hidden {
-    display: none;
 }
 
 /* Chess Board and Pieces */

@@ -43,7 +43,10 @@ const promotionOverlay = document.getElementById('promotion-overlay');
 const promotionChoices = document.querySelector('.promotion-choices');
 let evaluationElements = null;
 
-// New DOM elements for multiplayer
+// New DOM elements for mode selection and multiplayer
+const modeSelectionContainer = document.getElementById('mode-selection-container');
+const startSinglePlayerBtn = document.getElementById('start-single-player-btn');
+const showMultiplayerLobbyBtn = document.getElementById('show-multiplayer-lobby-btn');
 const lobbyContainer = document.getElementById('lobby-container');
 const gameContainer = document.getElementById('game-container');
 const usernameInput = document.getElementById('username');
@@ -53,29 +56,50 @@ const playerList = document.getElementById('player-list');
 const resignBtn = document.getElementById('resign-btn');
 const turnIndicator = document.getElementById('turn-indicator');
 const playerInfo = document.getElementById('player-info');
+const singlePlayerElements = document.querySelectorAll('.level-select, #newGame, #switchSides');
+const multiplayerElements = document.querySelectorAll('#resign-btn');
 
 // Ensure DOM is fully loaded before setting up event listeners
 document.addEventListener('DOMContentLoaded', (event) => {
-    // Hide game container initially
+    // Show mode selection screen initially
+    modeSelectionContainer.classList.remove('hidden');
     gameContainer.classList.add('hidden');
-    lobbyContainer.classList.remove('hidden');
+    lobbyContainer.classList.add('hidden');
 
+    startSinglePlayerBtn.addEventListener('click', startSinglePlayerGame);
+    showMultiplayerLobbyBtn.addEventListener('click', showMultiplayerLobby);
     joinGameBtn.addEventListener('click', joinGame);
     resignBtn.addEventListener('click', resignGame);
 
-    // Initial setup for single player mode
-    setupBoardSquares();
-    initializeBoardState();
-    initializeEvaluationElements();
-    setupPieces();
-    renderBoard();
-    
     // Add event listeners for single player buttons
     newGameBtn.addEventListener('click', newGame);
     switchSidesBtn.addEventListener('click', flipBoard);
     levelSelect.addEventListener('change', updateLevel);
-    updateLevel(); // Set initial skill level
+    updateLevel(); // Set initial skill level for single player mode
 });
+
+/**
+ * Displays the multiplayer lobby and hides other screens.
+ */
+function showMultiplayerLobby() {
+    modeSelectionContainer.classList.add('hidden');
+    lobbyContainer.classList.remove('hidden');
+}
+
+/**
+ * Starts a single-player game against the AI.
+ */
+function startSinglePlayerGame() {
+    isMultiplayer = false;
+    modeSelectionContainer.classList.add('hidden');
+    gameContainer.classList.remove('hidden');
+    
+    // Show single-player elements, hide multiplayer elements
+    singlePlayerElements.forEach(el => el.classList.remove('hidden'));
+    multiplayerElements.forEach(el => el.classList.add('hidden'));
+
+    newGame();
+}
 
 /**
  * Handles joining a multiplayer game.
@@ -105,9 +129,10 @@ function joinGame() {
         console.log("WebSocket connection closed.");
         showMessage("Connection to server lost. Please refresh.");
         isMultiplayer = false;
-        // Optionally switch back to single-player mode
+        // Show mode selection screen on disconnect
         gameContainer.classList.add('hidden');
-        lobbyContainer.classList.remove('hidden');
+        lobbyContainer.classList.add('hidden');
+        modeSelectionContainer.classList.remove('hidden');
     };
 
     ws.onerror = function(error) {
@@ -146,9 +171,9 @@ function handleWebSocketMessage(data) {
             allowMovement = myColor === turnColor;
 
             // Hide single-player elements, show multiplayer elements
-            document.querySelectorAll('.single-player-only').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.multiplayer-only').forEach(el => el.classList.remove('hidden'));
-
+            singlePlayerElements.forEach(el => el.classList.add('hidden'));
+            multiplayerElements.forEach(el => el.classList.remove('hidden'));
+            
             // Set up board for multiplayer
             newGame();
             if (myColor === 'black') {
@@ -193,14 +218,33 @@ function sendMoveToServer(startSquare, endSquare, promotedTo = '') {
  */
 function resignGame() {
     if (isMultiplayer && ws) {
-        if (confirm("Are you sure you want to resign?")) {
+        // use a custom modal instead of alert()
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <p>Are you sure you want to resign?</p>
+                <div class="modal-buttons">
+                    <button id="confirm-resign">Yes</button>
+                    <button id="cancel-resign">No</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('confirm-resign').addEventListener('click', () => {
             ws.send(JSON.stringify({
                 type: "resign",
                 winner: myColor === 'white' ? 'black' : 'white'
             }));
             showMessage("You have resigned from the game.");
             allowMovement = false;
-        }
+            modal.remove();
+        });
+
+        document.getElementById('cancel-resign').addEventListener('click', () => {
+            modal.remove();
+        });
     }
 }
 
@@ -440,11 +484,8 @@ function selectSquare(event) {
     const pieceOnSquare = clickedSquare.querySelector('.piece');
     const clickedSquareId = clickedSquare.id;
 
-    let turnPlayerColor = isWhiteTurn ? 'white' : 'black';
-    if (isMultiplayer) {
-        turnPlayerColor = turnColor;
-    }
-    
+    let turnPlayerColor = isMultiplayer ? turnColor : (isWhiteTurn ? 'white' : 'black');
+
     if (selectedPiece) {
         const originalSquareId = selectedPiece.parentElement.id;
         if (legalSquares.includes(clickedSquareId)) {
@@ -482,10 +523,7 @@ function drag(ev) {
     if (!piece) return;
     const pieceColor = piece.getAttribute("color");
 
-    let turnPlayerColor = isWhiteTurn ? 'white' : 'black';
-    if (isMultiplayer) {
-        turnPlayerColor = turnColor;
-    }
+    let turnPlayerColor = isMultiplayer ? turnColor : (isWhiteTurn ? 'white' : 'black');
 
     const isPlayerTurn = isMultiplayer ? (myColor === turnPlayerColor) :
                          (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
@@ -870,8 +908,8 @@ function getLegalMovesForPiece(startSquareId, pieceElement) {
  * Checks the current game status (check, checkmate, stalemate).
  */
 function checkGameStatus() {
-    const currentPlayerColor = isWhiteTurn ? 'white' : 'black';
-    const opponentPlayerColor = isWhiteTurn ? 'black' : 'white';
+    const currentPlayerColor = isMultiplayer ? turnColor : (isWhiteTurn ? 'white' : 'black');
+    const opponentPlayerColor = currentPlayerColor === 'white' ? 'black' : 'white';
     const kingInCheck = isKingInCheck(currentPlayerColor, board);
     let hasLegalMoves = false;
     for (let r = 0; r < 8; r++) {
@@ -991,7 +1029,7 @@ function finalizeMove(startSquare, endSquare, promotedTo = '') {
     // Multiplayer logic
     if (isMultiplayer) {
         // Send the move to the server if it's our turn
-        if (turnColor === myColor) {
+        if (myColor === turnColor) {
             sendMoveToServer(startSquare, endSquare, promotedTo);
         }
         
@@ -1213,6 +1251,14 @@ function displayEvaluation(lines, evaluations, scoreString) {
 }
 function updateEvaluationBar(evaluation, scoreString) {
     const { blackBar, evalNum } = evaluationElements;
+    if (isMultiplayer) {
+        document.getElementById('evalBar').style.display = 'none';
+        document.getElementById('topLines').style.display = 'none';
+        return;
+    }
+    document.getElementById('evalBar').style.display = 'flex';
+    document.getElementById('topLines').style.display = 'flex';
+
     if (typeof evaluation === 'number') {
         const clampedEval = Math.max(-15, Math.min(15, evaluation));
         const blackBarHeight = 50 - (clampedEval / 15 * 100);
@@ -1227,6 +1273,7 @@ function updateEvaluationBar(evaluation, scoreString) {
     }
 }
 function updateEvaluationLines(lines, evaluations) {
+    if (isMultiplayer) return;
     const maxLines = Math.min(lines.length, evaluations.length, 3);
     for (let i = 0; i < 3; i++) {
         const evalElement = evaluationElements.evalLines[i];
@@ -1243,6 +1290,7 @@ function updateEvaluationLines(lines, evaluations) {
     }
 }
 function updateEvaluationText(evaluation, scoreString) {
+    if (isMultiplayer) return;
     const { evalMain, evalText } = evaluationElements;
     if (!evalMain || !evalText) return;
     evalMain.textContent = evaluation !== undefined ? evaluation.toString() : '';
