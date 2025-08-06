@@ -357,6 +357,8 @@ function newGame() {
     if (!isMultiplayer) {
         updateLevel(); // Reapply the current skill level if single player
         updateTurnIndicatorSinglePlayer();
+        const currentFEN = generateFEN(board);
+        getEvaluation(currentFEN, displayEvaluation);
     }
 }
 
@@ -367,12 +369,9 @@ function flipBoard() {
     if (isMultiplayer) return; // Disable in multiplayer
     chessBoard.classList.toggle('flipped');
     isEngineWhite = !isEngineWhite;
+    newGame(); // Reset the board and turn
     updateTurnIndicatorSinglePlayer();
     renderBoard();
-    if ((isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn)) {
-        const currentFEN = generateFEN(board);
-        getBestMove(currentFEN, playBestMove);
-    }
 }
 
 /**
