@@ -66,6 +66,9 @@ document.addEventListener('DOMContentLoaded', (event) => {
     gameContainer.classList.add('hidden');
     lobbyContainer.classList.add('hidden');
 
+    // Initialize Stockfish worker only once
+    initStockfishWorker();
+
     startSinglePlayerBtn.addEventListener('click', startSinglePlayerGame);
     showMultiplayerLobbyBtn.addEventListener('click', showMultiplayerLobby);
     joinGameBtn.addEventListener('click', joinGame);
@@ -79,9 +82,27 @@ document.addEventListener('DOMContentLoaded', (event) => {
 });
 
 /**
+ * Initializes the Stockfish Web Worker.
+ */
+function initStockfishWorker() {
+    try {
+        // Assume the worker file is in the lib directory relative to the main page.
+        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
+        stockfishWorker.postMessage("uci");
+        stockfishWorker.postMessage("isready");
+        stockfishWorker.postMessage("setoption name multipv value 3");
+        console.log("Stockfish worker initialized successfully.");
+    } catch (e) {
+        console.error("Failed to initialize Stockfish worker:", e);
+        showMessage("AI engine is unavailable. Playing against a human is still possible.");
+    }
+}
+
+/**
  * Displays the multiplayer lobby and hides other screens.
  */
 function showMultiplayerLobby() {
+    isMultiplayer = true;
     modeSelectionContainer.classList.add('hidden');
     lobbyContainer.classList.remove('hidden');
 }
@@ -98,8 +119,12 @@ function startSinglePlayerGame() {
     singlePlayerElements.forEach(el => el.classList.remove('hidden'));
     multiplayerElements.forEach(el => el.classList.add('hidden'));
 
+    // Hide multiplayer player info and show single-player turn indicator
+    playerInfo.style.display = 'none';
+    turnIndicator.style.display = 'block';
+
     newGame();
-    updatePlayerInfoSinglePlayer();
+    updateTurnIndicatorSinglePlayer();
 }
 
 /**
@@ -183,6 +208,9 @@ function handleWebSocketMessage(data) {
                 chessBoard.classList.remove('flipped');
             }
             
+            playerInfo.style.display = 'block';
+            turnIndicator.style.display = 'none';
+
             updateTurnIndicator();
             updatePlayerInfo();
             break;
@@ -328,6 +356,7 @@ function newGame() {
 
     if (!isMultiplayer) {
         updateLevel(); // Reapply the current skill level if single player
+        updateTurnIndicatorSinglePlayer();
     }
 }
 
@@ -338,7 +367,7 @@ function flipBoard() {
     if (isMultiplayer) return; // Disable in multiplayer
     chessBoard.classList.toggle('flipped');
     isEngineWhite = !isEngineWhite;
-    updatePlayerInfoSinglePlayer();
+    updateTurnIndicatorSinglePlayer();
     renderBoard();
     if ((isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn)) {
         const currentFEN = generateFEN(board);
@@ -1052,7 +1081,7 @@ function finalizeMove(startSquare, endSquare, promotedTo = '') {
         if (isEngineTurn) {
             getBestMove(currentFEN, playBestMove);
         }
-        updatePlayerInfoSinglePlayer();
+        updateTurnIndicatorSinglePlayer();
     }
 }
 
@@ -1065,19 +1094,22 @@ function updateTurnIndicator() {
 }
 
 /**
- * Updates the player info display on the UI.
+ * Updates the turn indicator and other info for single player games.
  */
-function updatePlayerInfo() {
-    playerInfo.textContent = `You are ${myColor} - playing against ${opponentUsername}`;
-}
-
-/**
- * Updates the player info display for single player games.
- */
-function updatePlayerInfoSinglePlayer() {
+function updateTurnIndicatorSinglePlayer() {
     if (isMultiplayer) return;
     const playerColor = isEngineWhite ? 'black' : 'white';
-    playerInfo.textContent = `You are playing as ${playerColor.charAt(0).toUpperCase() + playerColor.slice(1)}`;
+    const turnColor = isWhiteTurn ? 'white' : 'black';
+    const turnText = `${turnColor.charAt(0).toUpperCase() + turnColor.slice(1)}'s Turn`;
+    
+    turnIndicator.textContent = turnText;
+    turnIndicator.style.color = (turnColor === 'white') ? 'black' : 'white';
+    document.body.style.backgroundColor = turnColor === 'white' ? '#f0f0f0' : '#333';
+
+    // Show AI status in the player info section
+    const userColor = isEngineWhite ? 'white' : 'black';
+    playerInfo.textContent = `You are playing as ${userColor.charAt(0).toUpperCase() + userColor.slice(1)} vs AI`;
+    playerInfo.style.display = 'block';
 }
 
 /**
@@ -1135,23 +1167,9 @@ function generateFEN(boardState) {
  * Gets the best move from Stockfish engine based on the current board state.
  */
 function getBestMove(fen, callback) {
-    if (isMultiplayer) return; // Disable in multiplayer
-    if (!stockfishWorker) {
-        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
-        stockfishWorker.onmessage = function (event) {
-            let message = event.data;
-            if (message.startsWith("bestmove")) {
-                const bestMove = message.split(" ")[1];
-                stockfishWorker.removeEventListener('message', listener);
-                callback(bestMove);
-            }
-        };
-        stockfishWorker.onerror = function(error) {
-            console.error("Stockfish Worker Error:", error);
-        };
-        stockfishWorker.postMessage("uci");
-        stockfishWorker.postMessage("isready");
-        stockfishWorker.postMessage("setoption name multipv value 3");
+    if (isMultiplayer || !stockfishWorker) {
+        if (!stockfishWorker) showMessage("AI engine is unavailable.");
+        return;
     }
     stockfishWorker.postMessage("position fen " + fen);
     const depth = Math.max(1, Math.min(20, selectedLevel * 2)); // Dynamic depth based on level
@@ -1171,55 +1189,56 @@ function getBestMove(fen, callback) {
  * Gets evaluation from Stockfish worker.
  */
 function getEvaluation(fen, callback) {
-    if (isMultiplayer) return; // Disable in multiplayer
-    if (!stockfishWorker) {
-        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
-        stockfishWorker.onmessage = function (event) {
-            let message = event.data;
-            if (message.startsWith("info depth 10")) {
-                let multipvIndex = message.indexOf("multipv");
-                if (multipvIndex !== -1) {
-                    let multipvString = message.slice(multipvIndex).split(" ")[1];
-                    let multipv = parseInt(multipvString) || 1;
-                    while (evaluations.length < 3) evaluations.push(null);
-                    while (lines.length < 3) lines.push("");
-                    while (scoreStrings.length < 3) scoreStrings.push(null);
-                    let scoreIndex = message.indexOf("score cp");
-                    let pvIndex = message.indexOf("pv");
-                    if (scoreIndex !== -1) {
-                        scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
-                        let evaluation = parseInt(scoreStrings[multipv - 1]) / 100 || 0;
-                        evaluation = isWhiteTurn ? evaluation : -evaluation;
-                        evaluations[multipv - 1] = evaluation;
-                    } else {
-                        scoreIndex = message.indexOf("score mate");
-                        scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
-                        let evaluation = parseInt(scoreStrings[multipv - 1]) || 0;
-                        evaluations[multipv - 1] = "#" + Math.abs(evaluation);
-                    }
-                    if (pvIndex !== -1) {
-                        let pvString = message.slice(pvIndex + 3).trim();
-                        lines[multipv - 1] = pvString;
-                    }
-                    if (multipv === 3) {
-                        callback(lines, evaluations, scoreStrings);
-                        evaluations = [];
-                        lines = [];
-                        scoreStrings = [];
-                    }
-                }
-            }
-        };
-        stockfishWorker.onerror = function(error) {
-            console.error("Stockfish Worker Error:", error);
-        };
-        stockfishWorker.postMessage("uci");
-        stockfishWorker.postMessage("isready");
-        stockfishWorker.postMessage("setoption name multipv value 3");
+    if (isMultiplayer || !stockfishWorker) {
+        if (!stockfishWorker) {
+            updateEvaluationBar(0, "0");
+            updateEvaluationLines([], []);
+            updateEvaluationText(0, "0");
+        }
+        return;
     }
     stockfishWorker.postMessage("ucinewgame");
     stockfishWorker.postMessage("position fen " + fen);
     stockfishWorker.postMessage("go depth 10"); // Fixed depth for evaluation
+    const listener = function(event) {
+        const message = event.data;
+        if (message.startsWith("info")) {
+            // Process evaluation output from Stockfish
+            let multipvIndex = message.indexOf("multipv");
+            if (multipvIndex !== -1) {
+                let multipv = parseInt(message.slice(multipvIndex).split(" ")[1]) || 1;
+                while (evaluations.length < 3) evaluations.push(null);
+                while (lines.length < 3) lines.push("");
+                while (scoreStrings.length < 3) scoreStrings.push(null);
+
+                let scoreIndex = message.indexOf("score cp");
+                let pvIndex = message.indexOf("pv");
+                if (scoreIndex !== -1) {
+                    scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
+                    let evaluation = parseInt(scoreStrings[multipv - 1]) / 100 || 0;
+                    evaluation = isWhiteTurn ? evaluation : -evaluation;
+                    evaluations[multipv - 1] = evaluation;
+                } else {
+                    scoreIndex = message.indexOf("score mate");
+                    scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
+                    let evaluation = parseInt(scoreStrings[multipv - 1]) || 0;
+                    evaluations[multipv - 1] = "#" + Math.abs(evaluation);
+                }
+                if (pvIndex !== -1) {
+                    let pvString = message.slice(pvIndex + 3).trim();
+                    lines[multipv - 1] = pvString;
+                }
+                if (multipv === 3) {
+                    callback(lines, evaluations, scoreStrings);
+                    evaluations = [];
+                    lines = [];
+                    scoreStrings = [];
+                    stockfishWorker.removeEventListener('message', listener);
+                }
+            }
+        }
+    };
+    stockfishWorker.addEventListener('message', listener);
 }
 
 function initializeEvaluationElements() {
