@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Game</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Favicon -->
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <!-- Chessboard.js CSS -->
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" crossorigin="anonymous">
 </head>
@@ -66,8 +68,7 @@
 
     <!-- Stockfish Web Worker (local file) -->
     <script src="lib/stockfish-nnue-16.js"></script>
-    <!-- Your client script (if it exists and handles WebSocket) -->
-    <script src="/client"></script>
+    <!-- Removed <script src="/client"></script> as it was causing a 404 error and is for multiplayer -->
     <!-- Your main game logic -->
     <script src="main.js"></script>
 </body>
