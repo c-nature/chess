@@ -293,7 +293,7 @@ body {
     max-width: 300px; /* Limit width for evaluation section */
     margin-top: 20px;
     padding: 15px;
-    background-color: white;
+    background-color: rgb(20, 59, 119);
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     box-sizing: border-box;
@@ -311,7 +311,7 @@ body {
 }
 
 .eval-fill-white { /* Updated class name */
-    background-color: #f0d9b5; /* White side color */
+    background-color: #ffffff; /* White side color */
     width: 100%;
     position: absolute;
     bottom: 0; /* Starts from the bottom */
@@ -320,7 +320,7 @@ body {
 }
 
 .eval-fill-black { /* Updated class name */
-    background-color: #b58863; /* Black side color */
+    background-color: #000000; /* Black side color */
     width: 100%;
     position: absolute;
     top: 0; /* Starts from the top */
