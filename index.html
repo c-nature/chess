@@ -11,65 +11,51 @@
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" crossorigin="anonymous">
 </head>
 <body>
-    <div id="game-mode-selection" class="buttonContainer">
-        <button id="singlePlayerBtn">Single Player (vs AI)</button>
+    <div id="game-mode-selection">
+        <button id="singlePlayerBtn">Single Player</button>
         <button id="multiplayerBtn">Multiplayer</button>
     </div>
-
     <div id="joinDiv" style="display: none;">
-        <input type="text" id="usernameInput" placeholder="Enter username">
+        <input id="usernameInput" type="text" placeholder="Enter username">
         <button id="joinGameBtn">Join Game</button>
     </div>
-
     <div id="gamePlayerInfo" style="display: none;">
-        <div id="playerInfo">
-            <p>Waiting for opponent...</p>
-        </div>
+        <div id="playerInfo"></div>
     </div>
-
-    <div id="topContainer" style="display: none;" class="top-container">
-        <div class="evaluation-container" style="display: none;">
-            <!-- Updated structure for evaluation bar -->
-            <div class="eval-bar-container">
-                <div class="eval-fill-white"></div>
-                <div class="eval-fill-black"></div>
-            </div>
-            <p class="evaluation-text">Evaluation: 0.00</p>
-        </div>
+    <div id="topContainer" style="display: none;">
         <button id="newGameBtn">New Game</button>
         <button id="resignBtn">Resign</button>
     </div>
-
     <div id="gameContainer" style="display: none;">
         <div id="chessboard"></div>
+        <div class="evaluation-container">
+            <div id="eval"></div>
+            <div class="blackBar"></div>
+            <div class="evalNum"></div>
+            <div id="evalText"></div>
+            <div class="eval-line"><span id="eval1"></span><span id="line1"></span></div>
+            <div class="eval-line"><span id="eval2"></span><span id="line2"></span></div>
+            <div class="eval-line"><span id="eval3"></span><span id="line3"></span></div>
+        </div>
     </div>
-
-    <div id="alert" style="display: none;">
-        <p id="alertMessage"></p>
+    <div id="alert">
+        <div id="alertMessage"></div>
         <button id="alertOkBtn">OK</button>
     </div>
-
-    <div id="promotion-overlay" style="display: none;">
-        <div class="promotion-choices">
-            <!-- Images will be updated dynamically based on player color -->
-            <img src="white-Queen.png" alt="Queen" class="promotion-piece" data-piece="q">
-            <img src="white-Rook.png" alt="Rook" class="promotion-piece" data-piece="r">
-            <img src="white-Bishop.png" alt="Bishop" class="promotion-piece" data-piece="b">
-            <img src="white-Knight.png" alt="Knight" class="promotion-piece" data-piece="n">
+    <div id="promotion-overlay">
+        <div id="promotion-options">
+            <img class="promotion-piece" data-piece="q" src="white-Queen.png" alt="Queen">
+            <img class="promotion-piece" data-piece="r" src="white-Rook.png" alt="Rook">
+            <img class="promotion-piece" data-piece="b" src="white-Bishop.png" alt="Bishop">
+            <img class="promotion-piece" data-piece="n" src="white-Knight.png" alt="Knight">
         </div>
     </div>
 
-    <!-- Chess.js library (for game logic) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js" crossorigin="anonymous"></script>
-    <!-- jQuery (required by Chessboard.js) -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-    <!-- Chessboard.js library (for board display) -->
-    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js" crossorigin="anonymous"></script>
-
-    <!-- Stockfish Web Worker (local file) -->
-    <script src="lib/stockfish-nnue-16.js"></script>
-    <!-- Removed <script src="/client"></script> as it was causing a 404 error and is for multiplayer -->
-    <!-- Your main game logic -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0/chess.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboardjs/1.0.0/chessboard-1.0.0.min.js"></script>
     <script src="main.js"></script>
+    <!-- Include client.js if separate WebSocket logic exists -->
+    <!-- <script src="/client"></script> -->
 </body>
 </html>

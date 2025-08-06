@@ -1,521 +1,117 @@
-/* General Body Styling */
 body {
-    display: flex;
-    flex-direction: column; /* Allow content to stack vertically */
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh; /* Use min-height to ensure content fits */
-    background-color: #f3f3f3;
-    font-family: 'Inter', sans-serif; /* Use Inter font */
-    margin: 0;
-    padding: 20px; /* Add some padding around the content */
-    box-sizing: border-box; /* Include padding in element's total width and height */
-}
-
-/* Main Container for the Game */
-.container {
-    display: none; /* Hidden by default, shown when game starts */
-    flex-direction: column; /* Stack board and info vertically on small screens */
-    align-items: center;
-    margin-bottom: 20px; /* Space below the board */
-    width: 100%; /* Take full width on small screens */
-    max-width: 800px; /* Max width for larger screens */
-    border-radius: 10px;
-    overflow: hidden; /* Ensure rounded corners apply */
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* Soft shadow */
-}
-
-/* Chess Board Styling */
-#chessboard { /* Changed to ID selector as per HTML */
-    width: 100%; /* Fluid width for responsiveness */
-    max-width: 600px; /* Max width for the board */
-    height: auto; /* Maintain aspect ratio */
-    aspect-ratio: 1 / 1; /* Keep it square */
-    margin: 0 auto;
-    /* Chessboard.js handles grid layout, so these might not be strictly necessary here */
-    /* display: grid; */
-    /* grid-template-columns: repeat(8, 1fr); */
-    /* grid-template-rows: repeat(8, 1fr); */
-    border-radius: 8px; /* Rounded corners for the board */
-    overflow: hidden;
-    border: 2px solid #333; /* Border for the board */
-}
-
-/* Flipped board for black player (handled by chessboard.js orientation) */
-/* .chessBoard.flipped {
-    transform: rotate(180deg);
-} */
-
-/* Individual Square Styling (handled by chessboard.js) */
-.square-55d63 { /* Chessboard.js square class */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-    user-select: none; /* Prevent text selection */
-}
-
-.white-1e1d7 { /* Chessboard.js white square class */
-    background-color: #f0d9b5; /* Light square color */
-}
-
-.black-3c85d { /* Chessboard.js black square class */
-    background-color: #b58863; /* Dark square color */
-}
-
-/* Coordinates (a-h, 1-8) - Chessboard.js handles these */
-.coordinate {
-    position: absolute;
-    font-size: 12px;
-    font-weight: bold;
-    font-family: 'Verdana', sans-serif;
-    z-index: 2; /* Ensure coordinates are above pieces when flipped */
-}
-
-/* Piece Styling (handled by chessboard.js) */
-.piece-417db { /* Chessboard.js piece class */
-    width: 100%; /* Pieces should fill the square */
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: grab; /* Indicate draggable */
-    /* transition: transform 0.1s ease-out; */ /* Chessboard.js handles animations */
-}
-
-.piece-417db img {
-    max-width: 100%;
-    height: auto;
-    pointer-events: none; /* Prevent image drag interfering with piece drag */
-    /* transition: transform 0.1s ease-out; */ /* Chessboard.js handles animations */
-}
-
-/* Flipped pieces and coordinates (handled by chessboard.js orientation) */
-/* .chessBoard.flipped .piece {
-    transform: rotate(180deg);
-}
-.chessBoard.flipped .coordinate {
-    transform: rotate(180deg);
-} */
-
-
-/* Highlight for selected piece and legal moves */
-.square-55d63.selected { /* Updated class for selected square */
-    box-shadow: inset 0 0 0 4px rgba(0, 255, 0, 0.7); /* Green border for selected */
-}
-
-.square-55d63.legal-move { /* Updated class for legal move square */
-    background-color: rgba(0, 255, 0, 0.3); /* Transparent green for legal moves */
-    box-shadow: inset 0 0 0 2px rgba(0, 255, 0, 0.7);
-}
-
-.square-55d63.legal-capture { /* Updated class for legal capture square */
-    box-shadow: inset 0 0 0 4px rgba(255, 0, 0, 0.7); /* Red border for captures */
-}
-
-/* Alert Message */
-#alert {
-    position: absolute;
-    color: whitesmoke;
-    width: 80%; /* Responsive width */
-    max-width: 450px; /* Max width for larger screens */
-    height: 80px;
-    text-align: center;
-    display: flex; /* Use flex for centering content */
-    align-items: center;
-    justify-content: center;
-    font-size: 35px;
-    font-weight: bold;
-    z-index: 1000;
-    background: rgba(0, 128, 128, 0.75); /* Teal with transparency */
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    display: none; /* Hidden by default */
-}
-
-/* Promotion Options Overlay */
-#promotion-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.6);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 2000;
-    display: none; /* Hidden by default */
-}
-
-#promotion-overlay.active {
-    display: flex; /* Show when active */
-}
-
-.promotion-choices {
-    background-color: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-
-.promotion-piece { /* Changed from promotion-choice to match HTML */
-    width: 80px; /* Fixed size for promotion pieces */
-    height: 80px;
-    border-radius: 8px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: #f0d9b5; /* Default background */
-}
-
-.promotion-piece.white-piece {
-    background-color: #f0d9b5; /* Light square color */
-}
-
-.promotion-piece.black-piece {
-    background-color: #b58863; /* Dark square color */
-}
-
-
-.promotion-piece:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-    background-color: #539B0C; /* Green on hover */
-}
-
-.promotion-piece img {
-    max-width: 90%;
-    height: auto;
-}
-
-/* Game Mode Selection */
-#game-mode-selection {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    padding: 30px;
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-    align-items: center;
-    justify-content: center;
-}
-
-#game-mode-selection button {
-    padding: 15px 30px;
-    font-size: 1.2em;
-    font-weight: bold;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    background: linear-gradient(145deg, #6a11cb, #2575fc); /* Gradient button */
-    color: white;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    transition: transform 0.2s, box-shadow 0.2s;
-    width: 200px;
-}
-
-#game-mode-selection button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-}
-
-/* Top Container for AI controls and evaluation */
-.top-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-    width: 100%;
-    max-width: 600px;
-    margin-bottom: 20px;
-    padding: 15px;
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    box-sizing: border-box;
-    display: none; /* Hidden by default, shown for single player */
-}
-
-.buttonContainer {
-    display: flex;
-    flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
-    gap: 10px;
-    justify-content: center;
-    width: 100%;
-}
-
-.buttonContainer button,
-.buttonContainer select {
-    padding: 10px 15px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
-    background-color: rgb(87, 64, 64);
-    color: white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    min-width: 100px; /* Ensure buttons have a minimum width */
-}
-
-.buttonContainer button:hover,
-.buttonContainer select:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.buttonContainer select {
-    background-color: whitesmoke;
-    color: #333;
-    appearance: none; /* Remove default select arrow */
-    background-image: url('data:image/svg+xml;utf8,<svg fill="%23333" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
-    background-repeat: no-repeat;
-    background-position: right 8px center;
-    padding-right: 30px; /* Make space for the custom arrow */
-}
-
-/* Evaluation Bar */
-.evaluation-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    max-width: 300px; /* Limit width for evaluation section */
-    margin-top: 20px;
-    padding: 15px;
-    background-color: rgb(20, 59, 119);
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    box-sizing: border-box;
-    display: none; /* Hidden by default, shown for single player */
-}
-
-.eval-bar-container {
-    width: 30px;
-    height: 200px;
-    background-color: transparent;
-    position: relative;
-    border-radius: 5px;
-    overflow: hidden;
-    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
-}
-
-.eval-fill-white {
-    background-color: white;
-    width: 100%;
-    position: absolute;
-    top: 0;
-    transition: height 0.3s ease-out;
-    height: 50%;
-    z-index: 2;
-}
-
-.eval-fill-black {
-    background-color: black;
-    width: 100%;
-    position: absolute;
-    bottom: 0;
-    transition: height 0.3s ease-out;
-    height: 50%;
-    z-index: 1;
-}
-
-.evaluation-text { /* Changed from eval-num to match HTML */
-    font-size: 1.2em;
-    font-weight: bold;
-    color: #ffffff;
-}
-
-/* Multiplayer Join UI */
-#joinDiv { /* Changed to ID selector as per HTML */
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    padding: 30px;
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-    align-items: center;
-    justify-content: center;
-}
-
-#joinDiv input {
-    outline: none;
-    height: 40px;
-    padding: 0 10px;
-    border: 1px solid lightgray;
-    border-radius: 5px;
-    font-size: 1em;
-    width: 250px;
-    box-sizing: border-box;
-}
-
-#joinDiv button {
-    border: none;
-    height: 45px;
-    width: 150px;
-    background-color: #4CAF50; /* Green */
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-    border-radius: 5px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
-}
-
-#joinDiv button:hover {
-    background-color: #45a049;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-}
-
-/* Player Info Display (Multiplayer) */
-#playerInfo {
-    display: flex;
-    width: 100%;
-    max-width: 600px;
-    height: 80px;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1em;
-    color: #555;
-    margin-top: 20px;
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    display: none; /* Hidden by default */
-}
-
-#gamePlayerInfo {
-    display: none; /* Hidden by default, shown when game starts */
-    background-color: white;
-    border-radius: 10px;
-    flex-direction: column;
-    width: 100%;
-    max-width: 250px; /* Adjust width as needed */
-    height: auto;
-    justify-content: space-between;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    padding: 15px;
-    box-sizing: border-box;
-}
-
-.player {
-    padding: 10px;
-    color: rgb(77, 77, 77);
-    font-size: 1.1em;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.iconContainer {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 10px;
-    cursor: pointer;
-}
-
-.gameActions {
-    font-size: 1.5em;
-    color: #d9534f; /* Red for resign */
-    cursor: pointer;
-    transition: color 0.2s;
-}
-
-.gameActions:hover {
-    color: #c9302c;
-}
-
-#counter {
-    display: flex;
-    justify-content: center;
-    font-size: 40px;
-    font-weight: bold;
-    color: #333;
-    margin-top: 20px;
-}
-
-/* Responsive Adjustments */
-@media (min-width: 768px) {
-    body {
-        flex-direction: row; /* Side-by-side on larger screens */
-        align-items: flex-start; /* Align to top */
-        justify-content: center;
-        gap: 30px; /* Space between main sections */
-    }
-
-    .container {
-        flex-direction: row; /* Board and player info side-by-side */
-        justify-content: center;
-        align-items: flex-start;
-        max-width: unset; /* Remove max-width to allow more flexibility */
-        margin-bottom: 0;
-    }
-
-    #chessboard { /* Fixed width for board on larger screens */
-        width: 600px;
-        height: 600px;
-        max-width: 600px;
-    }
-
-    .top-container,
-    .evaluation-container {
-        align-self: flex-start; /* Align to top */
-        margin-top: 0;
-    }
-
-    .buttonContainer {
-        flex-direction: column; /* Stack buttons vertically */
-        width: auto;
-    }
-
-    #gamePlayerInfo {
-        height: 250px; /* Fixed height for player info */
-    }
-}
-
-@media (max-width: 600px) {
-    .coordinate {
-        font-size: 8px;
-    }
-
-    #alert {
-        font-size: 20px;
-        height: 60px;
-    }
-
-    .buttonContainer {
-        flex-direction: row;
-        align-items: last baseline;
-        justify-content: center;
-        width: 100%;
-    }
-
-    .buttonContainer button,
-    .buttonContainer select {
-        width: 25vw; /* Adjust width for smaller buttons on mobile */
-        margin-right: 5px;
-        font-size: 0.8em;
-        padding: 8px;
-    }
-
-    #joinDiv input {
-        width: 80%;
-    }
-
-    #joinDiv button {
-        width: 120px;
-    }
-}
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #gameContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #chessboard {
+            margin: 20px;
+        }
+        .evaluation-container {
+            position: relative;
+            width: 200px;
+            height: 20px;
+            border: 1px solid #000;
+            margin: 10px 0;
+        }
+        .blackBar {
+            height: 100%;
+            background-color: black;
+            width: 0%;
+            transition: width 0.5s;
+        }
+        .evalNum {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #000;
+        }
+        #eval {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-weight: bold;
+        }
+        #evalText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            z-index: 1;
+        }
+        .eval-line {
+            margin: 5px 0;
+            color: #000;
+        }
+        .eval-line span:first-child {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        #topContainer {
+            display: flex;
+            justify-content: space-around;
+            width: 300px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #joinDiv, #gamePlayerInfo {
+            margin: 10px 0;
+            text-align: center;
+        }
+        #alert {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border: 2px solid #000;
+            z-index: 1000;
+        }
+        #promotion-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        #promotion-options {
+            background-color: white;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        .promotion-piece {
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+        }
+        .square-55d63.selected {
+            background-color: rgba(255, 255, 0, 0.5);
+        }
+        .square-55d63.legal-move {
+            background-color: rgba(0, 255, 0, 0.5);
+        }
+        .square-55d63.legal-capture {
+            background-color: rgba(255, 0, 0, 0.5);
+        }
