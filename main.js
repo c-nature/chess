@@ -21,6 +21,7 @@ let evaluations = [null, null, null]; // Array to store evaluations for multipv
 let lines = ["", "", ""]; // Array to store PV lines for each multipv
 let scoreStrings = [null, null, null]; // Array to store scoreString per multipv
 let isAwaitingEvaluation = false; // Flag to prevent sending multiple commands
+let isEngineReady = false; // Flag to check if the engine is ready
 
 const boardSquares = document.getElementsByClassName('square');
 const pieces = document.getElementsByClassName('piece');
@@ -807,13 +808,17 @@ function generateFEN(boardState) {
  * @param {string} fen The FEN string of the current position.
  */
 function getEvaluation(fen) {
-    // Prevent sending new commands if one is already in progress
-    if (isAwaitingEvaluation) {
+    // If we have a worker and are awaiting a response, stop it before sending a new command.
+    if (stockfishWorker && isAwaitingEvaluation) {
         stockfishWorker.postMessage("stop");
-        isAwaitingEvaluation = false; // Reset the flag
     }
+
+    // Reset evaluation state and UI
     isAwaitingEvaluation = true;
-    displayEvaluation([], [], "Thinking..."); // Update UI to show it's working
+    evaluations = [null, null, null];
+    lines = ["", "", ""];
+    scoreStrings = [null, null, null];
+    displayEvaluation(lines, evaluations, "Thinking...");
 
     if (!stockfishWorker) {
         console.log("Creating new worker with path:", "./lib/stockfish-nnue-16.js");
@@ -821,6 +826,16 @@ function getEvaluation(fen) {
         stockfishWorker.onmessage = function (event) {
             let message = event.data;
             // console.log("Stockfish Raw Message:", message);
+
+            if (message === "readyok") {
+                isEngineReady = true;
+                // Once the engine is ready, send the first position command.
+                stockfishWorker.postMessage("position fen " + fen);
+                stockfishWorker.postMessage("go depth 15");
+                return;
+            }
+
+            if (!isEngineReady) return;
 
             if (message.startsWith("info depth") || message.startsWith("info multipv")) {
                 let multipvMatch = message.match(/multipv (\d+)/);
@@ -845,7 +860,7 @@ function getEvaluation(fen) {
                 let pvString = "";
                 if (pvIndex !== -1) {
                     let pvText = message.slice(pvIndex + 3).trim();
-                    pvString = pvText.split(" ")[0] || "";
+                    pvString = pvText.split(" ").slice(0, 3).join(" ");
                 }
 
                 if (multipv >= 1 && multipv <= 3) {
@@ -853,26 +868,33 @@ function getEvaluation(fen) {
                     lines[multipv - 1] = pvString;
                     scoreStrings[multipv - 1] = scoreString;
                 }
+                
+                // Only display when we have at least one valid evaluation
+                if (evaluations[0] !== null) {
+                    displayEvaluation(lines, evaluations, scoreStrings[0]);
+                }
 
-                displayEvaluation(lines, evaluations, scoreStrings[0]);
             } else if (message.startsWith("bestmove")) {
                 isAwaitingEvaluation = false;
-                // You could handle the best move here, but for now we just log it.
+                // Log the best move and reset the UI state.
                 console.log("Stockfish Best Move:", message);
+                // The `displayEvaluation` will already have the final value from the last `info` message.
             }
         };
         stockfishWorker.onerror = function(error) {
             console.error("Stockfish Worker Error:", error);
             isAwaitingEvaluation = false;
         };
+        // Initial setup commands
         stockfishWorker.postMessage("uci");
+        stockfishWorker.postMessage("setoption name multipv value 3");
         stockfishWorker.postMessage("isready");
-    }
 
-    stockfishWorker.postMessage("ucinewgame");
-    stockfishWorker.postMessage("setoption name multipv value 3");
-    stockfishWorker.postMessage("position fen " + fen);
-    stockfishWorker.postMessage("go depth 15"); // Increased depth for better quality
+    } else if (isEngineReady) {
+        // If the worker is already initialized and ready, just send the new position.
+        stockfishWorker.postMessage("position fen " + fen);
+        stockfishWorker.postMessage("go depth 15");
+    }
 }
 
 // Cache DOM elements for better performance
