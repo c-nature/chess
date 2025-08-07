@@ -2,14 +2,40 @@
 <html>
   <head>
     <title>Chess Board</title>
-      <link rel="stylesheet" href="style.css">
-      <link rel="stylesheet" href="./fontawesome/css/all.css">
+      <link rel="stylesheet" href="style_moves.css">
+      <link rel="stylesheet" href="fontawesome/css/all.css">
+
   </head>
 
   <body>
      
      <div class="container">
-   
+      <div class="buttonContainer">
+        <div>
+          <div id="levelLabel">
+            <span>Level:</span>
+         </div>
+       
+        <select id="level">
+          <option value="1">Level 1</option>
+          <option value="2">Level 2</option>
+          <option value="3">Level 3</option>
+          <option value="4">Level 4</option>
+          <option value="5">Level 5</option>
+          <option value="6">Level 6</option>
+          <option value="7">Level 7</option>
+          <option value="8">Level 8</option>
+          <option value="9">Level 9</option>
+          <option value="10">Level 10</option>
+        </select>
+      </div>
+      <div>
+        <button id="newGame">New Game</button>
+      </div>
+      <div>
+        <button id="switchSides">Switch Sides</button>
+      </div>
+     </div>
    
 
     <div class="chessBoard">        
@@ -263,33 +289,37 @@
         Draw 
        </div>
     </div>
-
-     </div>
-     <div>
-       <div id="join">
-        <input type="text" id="usernameInput" placeholder="Enter your username" />
-        <button onclick="joinGame()">Join Game</button>
-       </div>
-       <div id="counter"></div>
-       <div id="playerInfo"></div>
-       <div id="gamePlayerInfo">
-        <div class="player"><span id="player2">Player2</span></div>
-        <div id="pgnContainer"></div>
-        <div class="player">
-          <div class="iconContainer">
-            <span id="resignButton" class="gameActions"><i class="fa-solid fa-flag"></i></span>
-          </div>
-          <span id="player1">Player1</span>
-
-        </div>
-       </div>
-
     
 
 
+  </div>
+  <div id="gamePlayerInfo">
+    <div class="player"><span id="player2">Player2</span></div>
+    <div id="moveNavigation">
+      <div id="fastBackward" class="navigation">
+        <i class="fa fa-fast-backward"></i>
+      </div>
+      <div id="stepBackward" class="navigation">
+        <i class="fa fa-step-backward"></i>
+      </div>
+      <div id="stepForward" class="navigation">
+        <i class="fa fa-step-forward"></i>
+      </div>
+      <div id="fastForward" class="navigation">
+        <i class="fa fa-fast-forward"></i>
+      </div>
     </div>
+    <div id="pgnContainer"></div>
 
-    <script src="client.js"></script>
-    <script src="main.js"></script>
+    <div class="player">
+
+      <span id="player1">Player1</span>
+
+    </div>
+   </div>
+
+
+
+    <script src="main_with_moveList.js"></script>
   </body>
 </html>
