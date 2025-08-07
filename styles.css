@@ -1,108 +1,35 @@
+/* All custom styles from the original <style> tag */
 body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  }
-.chessBoard {
-  width:80vw;
-  height: 80vw;
-  margin: 0 auto;
-  display: flex;
-  flex-wrap: wrap;
+    font-family: 'Inter', sans-serif;
+    background-color: #1a202c; /* Dark background */
 }
-.square {
-  width:12.5%;
-  height: 12.5%;
-  float: left;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
+.container {
+    max-width: 800px;
 }
-.white {
-  background-color: #f0d9b5;
+#myBoard {
+    width: 100%;
 }
-.black {
-  background-color: #b58863;
+/* Custom styles for the evaluation bar */
+#evaluation-bar-container {
+    width: 20px;
+    height: 100%;
+    background-color: #4a5568;
+    border-radius: 9999px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
 }
-.coordinate {
-  height:auto;
-  display:flex;
-  bottom: 4%;
-  left:4%;
-  position: absolute;
-  font-size: 12px;
-  font-weight: bold;
-  font-family: Verdana, Geneva, Tahoma, sans-serif;
+#evaluation-bar {
+    width: 100%;
+    transition: height 0.5s ease-in-out, background-color 0.5s ease-in-out;
 }
-.rank {
-  top:4%;
-  right:4%;
-  left:auto;
+/* Custom styling for pieces, overriding chessboard.js defaults for a cleaner look */
+.piece-347b3 {
+    border-radius: 4px;
 }
-.whiteText {
-  color:#f0d9b5;
+/* Custom modal for game messages */
+.modal {
+    display: none;
 }
-.blackText {
-  color:#b58863;
-}
-.piece {
-  width:100%;
-  z-index: 1;
-  cursor: pointer;
-}
-.piece img {
-  max-width: 100%;
-  width:100%;
-  height: auto;
-}
-
-#alert {
-  position: fixed;
-  top:50%;
-  left:50%;
-  transform: translate(-50%,-50%);
-  color:rgb(0, 176, 67);
-  width:44vw;
-  text-align: center;
-  align-content: center;
-  justify-content: center;
-  font-size:xxx-large;
-  font-weight: bold;
-  z-index: 1000;
-  display: none;
-
-}
-    
-
-@media (min-width:600px) {
-  .chessBoard {
-      width:600px;
-      height: 600px;
-  }
-}
-@media (max-width:600px) {
-  .coordinate {
-    font-size: 8px;
-  }
-}
-
-.promotionOption{
-  border-radius: 50%;
-  background-color: darkgray;
-  transition: transform 0.2s;
-  position: absolute;
-  z-index: 1000;
-}
-.promotionOption:hover {
-  cursor: pointer;
-  border-radius: 0%;
-  background-color:#539B0C;
-  width: 100%;
-}
-.promotionOption img {
-  max-width: 100%;
-  width: 100%;
-  height: auto;
+.modal.active {
+    display: flex;
 }
