@@ -30,6 +30,7 @@ const piecesImages = document.getElementsByTagName("img");
 // Promotion UI elements
 const promotionOverlay = document.getElementById('promotion-overlay');
 const promotionChoices = document.querySelector('.promotion-choices');
+const newGameButton = document.getElementById('new-game-button');
 
 // Ensure DOM is fully loaded before setting up event listeners
 document.addEventListener('DOMContentLoaded', (event) => {
@@ -39,7 +40,38 @@ document.addEventListener('DOMContentLoaded', (event) => {
     renderBoard(); // Render the board based on initial state
     initializeEvaluationElements(); // Initialize evaluation display elements cache
     finalizeMove();
+    newGameButton.addEventListener('click', newGame);
 });
+
+function newGame() {
+    // Reset all global state to its initial values
+    board = [];
+    legalSquares = [];
+    isWhiteTurn = true;
+    enPassantTargetSquare = null;
+    selectedSquare = null;
+    selectedPiece = null;
+    pawnPromotionTargetSquareId = null;
+    hasWhiteKingMoved = false;
+    hasBlackKingMoved = false;
+    hasWhiteKingsideRookMoved = false;
+    hasWhiteQueensideRookMoved = false;
+    hasBlackKingsideRookMoved = false;
+    hasBlackQueensideRookMoved = false;
+    isAwaitingEvaluation = false;
+    
+    // Reset DOM elements
+    clearMessage();
+    
+    // Re-initialize the board state from the HTML
+    initializeBoardState();
+    renderBoard();
+    
+    // Re-run the evaluation for the starting position
+    const startingFEN = generateFEN(board);
+    getEvaluation(startingFEN);
+}
+
 
 /**
  * Sets up event listeners and IDs for each square on the chessboard.
@@ -532,33 +564,36 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                 }
             });
 
-            const kingRow = (pieceColor === 'white') ? 7 : 0;
-            const kingMovedFlag = (pieceColor === 'white') ? hasWhiteKingMoved : hasBlackKingMoved;
+            // Castling logic should only be considered for player moves, not for check validation
+            if (!forCheckValidation) {
+                const kingRow = (pieceColor === 'white') ? 7 : 0;
+                const kingMovedFlag = (pieceColor === 'white') ? hasWhiteKingMoved : hasBlackKingMoved;
 
-            if (!kingMovedFlag && startRow === kingRow && startCol === 4) {
-                const kingsideRookMovedFlag = (pieceColor === 'white') ? hasWhiteKingsideRookMoved : hasBlackKingsideRookMoved;
-                const kingsideRookCol = 7;
-                if (!kingsideRookMovedFlag && boardState[kingRow][5] === null && boardState[kingRow][6] === null &&
-                    boardState[kingRow][kingsideRookCol] && boardState[kingRow][kingsideRookCol].type === 'rook' && boardState[kingRow][kingsideRookCol].color === pieceColor) {
-                    const pathClearAndSafe =
-                        !isKingInCheck(pieceColor, boardState) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState)) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState));
-                    if (pathClearAndSafe) {
-                        addMove(kingRow, 6);
+                if (!kingMovedFlag && startRow === kingRow && startCol === 4) {
+                    const kingsideRookMovedFlag = (pieceColor === 'white') ? hasWhiteKingsideRookMoved : hasBlackKingsideRookMoved;
+                    const kingsideRookCol = 7;
+                    if (!kingsideRookMovedFlag && boardState[kingRow][5] === null && boardState[kingRow][6] === null &&
+                        boardState[kingRow][kingsideRookCol] && boardState[kingRow][kingsideRookCol].type === 'rook' && boardState[kingRow][kingsideRookCol].color === pieceColor) {
+                        const pathClearAndSafe =
+                            !isKingInCheck(pieceColor, boardState) &&
+                            !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState)) &&
+                            !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState));
+                        if (pathClearAndSafe) {
+                            addMove(kingRow, 6);
+                        }
                     }
-                }
 
-                const queensideRookMovedFlag = (pieceColor === 'white') ? hasWhiteQueensideRookMoved : hasBlackQueensideRookMoved;
-                const queensideRookCol = 0;
-                if (!queensideRookMovedFlag && boardState[kingRow][1] === null && boardState[kingRow][2] === null && boardState[kingRow][3] === null &&
-                    boardState[kingRow][queensideRookCol] && boardState[kingRow][queensideRookCol].type === 'rook' && boardState[kingRow][queensideRookCol].color === pieceColor) {
-                    const pathClearAndSafe =
-                        !isKingInCheck(pieceColor, boardState) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState)) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState));
-                    if (pathClearAndSafe) {
-                        addMove(kingRow, 2);
+                    const queensideRookMovedFlag = (pieceColor === 'white') ? hasWhiteQueensideRookMoved : hasBlackQueensideRookMoved;
+                    const queensideRookCol = 0;
+                    if (!queensideRookMovedFlag && boardState[kingRow][1] === null && boardState[kingRow][2] === null && boardState[kingRow][3] === null &&
+                        boardState[kingRow][queensideRookCol] && boardState[kingRow][queensideRookCol].type === 'rook' && boardState[kingRow][queensideRookCol].color === pieceColor) {
+                        const pathClearAndSafe =
+                            !isKingInCheck(pieceColor, boardState) &&
+                            !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState)) &&
+                            !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState));
+                        if (pathClearAndSafe) {
+                            addMove(kingRow, 2);
+                        }
                     }
                 }
             }
