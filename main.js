@@ -47,8 +47,10 @@ let evaluationElements = null;
 const modeSelectionContainer = document.getElementById('mode-selection-container');
 const startSinglePlayerBtn = document.getElementById('start-single-player-btn');
 const showMultiplayerLobbyBtn = document.getElementById('show-multiplayer-lobby-btn');
+const singlePlayerContainer = document.getElementById('single-player-container');
+const multiplayerContainer = document.getElementById('multiplayer-container');
 const lobbyContainer = document.getElementById('lobby-container');
-const gameContainer = document.getElementById('game-container');
+const multiplayerGameBoard = document.getElementById('multiplayer-game-board');
 const usernameInput = document.getElementById('username');
 const joinGameBtn = document.getElementById('join-game-btn');
 const statusMessage = document.getElementById('status-message');
@@ -56,15 +58,13 @@ const playerList = document.getElementById('player-list');
 const resignBtn = document.getElementById('resign-btn');
 const turnIndicator = document.getElementById('turn-indicator');
 const playerInfo = document.getElementById('player-info');
-const singlePlayerElements = document.querySelectorAll('.level-select, #newGame, #switchSides');
-const multiplayerElements = document.querySelectorAll('#resign-btn');
 
 // Ensure DOM is fully loaded before setting up event listeners
 document.addEventListener('DOMContentLoaded', (event) => {
     // Show mode selection screen initially
     modeSelectionContainer.classList.remove('hidden');
-    gameContainer.classList.add('hidden');
-    lobbyContainer.classList.add('hidden');
+    singlePlayerContainer.classList.add('hidden');
+    multiplayerContainer.classList.add('hidden');
 
     // Initialize Stockfish worker only once
     initStockfishWorker();
@@ -104,7 +104,10 @@ function initStockfishWorker() {
 function showMultiplayerLobby() {
     isMultiplayer = true;
     modeSelectionContainer.classList.add('hidden');
+    singlePlayerContainer.classList.add('hidden');
+    multiplayerContainer.classList.remove('hidden');
     lobbyContainer.classList.remove('hidden');
+    multiplayerGameBoard.classList.add('hidden');
 }
 
 /**
@@ -113,15 +116,16 @@ function showMultiplayerLobby() {
 function startSinglePlayerGame() {
     isMultiplayer = false;
     modeSelectionContainer.classList.add('hidden');
-    gameContainer.classList.remove('hidden');
+    multiplayerContainer.classList.add('hidden');
+    singlePlayerContainer.classList.remove('hidden');
     
-    // Show single-player elements, hide multiplayer elements
-    singlePlayerElements.forEach(el => el.classList.remove('hidden'));
-    multiplayerElements.forEach(el => el.classList.add('hidden'));
-
-    // Hide multiplayer player info and show single-player turn indicator
-    playerInfo.style.display = 'none';
-    turnIndicator.style.display = 'block';
+    // Set up single-player UI visibility
+    document.getElementById('level').style.display = 'block';
+    document.getElementById('newGame').style.display = 'block';
+    document.getElementById('switchSides').style.display = 'block';
+    document.getElementById('evalBar').style.display = 'flex';
+    document.getElementById('topLines').style.display = 'flex';
+    document.getElementById('resign-btn').style.display = 'none';
 
     newGame();
     updateTurnIndicatorSinglePlayer();
@@ -158,8 +162,8 @@ function joinGame() {
         showMessage("Connection to server lost. Please refresh.");
         isMultiplayer = false;
         // Show mode selection screen on disconnect
-        gameContainer.classList.add('hidden');
-        lobbyContainer.classList.add('hidden');
+        singlePlayerContainer.classList.add('hidden');
+        multiplayerContainer.classList.add('hidden');
         modeSelectionContainer.classList.remove('hidden');
     };
 
@@ -193,15 +197,19 @@ function handleWebSocketMessage(data) {
             opponentUsername = data.opponent;
             
             lobbyContainer.classList.add('hidden');
-            gameContainer.classList.remove('hidden');
+            multiplayerGameBoard.classList.remove('hidden');
             
             turnColor = 'white';
             allowMovement = myColor === turnColor;
 
             // Hide single-player elements, show multiplayer elements
-            singlePlayerElements.forEach(el => el.classList.add('hidden'));
-            multiplayerElements.forEach(el => el.classList.remove('hidden'));
-            
+            document.getElementById('level').style.display = 'none';
+            document.getElementById('newGame').style.display = 'none';
+            document.getElementById('switchSides').style.display = 'none';
+            document.getElementById('evalBar').style.display = 'none';
+            document.getElementById('topLines').style.display = 'none';
+            document.getElementById('resign-btn').style.display = 'block';
+
             // Set up board for multiplayer
             newGame();
             if (myColor === 'black') {
@@ -210,11 +218,8 @@ function handleWebSocketMessage(data) {
                 chessBoard.classList.remove('flipped');
             }
             
-            playerInfo.style.display = 'block';
-            turnIndicator.style.display = 'none';
-
-            updateTurnIndicator();
-            updatePlayerInfo();
+            updateTurnIndicatorMultiplayer();
+            updatePlayerInfoMultiplayer();
             break;
         case "move":
             // An opponent's move
@@ -517,6 +522,8 @@ function selectSquare(event) {
     const clickedSquareId = clickedSquare.id;
 
     let turnPlayerColor = isMultiplayer ? turnColor : (isWhiteTurn ? 'white' : 'black');
+    let isPlayerTurn = isMultiplayer ? (myColor === turnPlayerColor) :
+                             (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
 
     if (selectedPiece) {
         const originalSquareId = selectedPiece.parentElement.id;
@@ -530,10 +537,7 @@ function selectSquare(event) {
         }
     } else if (pieceOnSquare) {
         const pieceColor = pieceOnSquare.getAttribute("color");
-        const isPlayerTurn = isMultiplayer ? (myColor === turnPlayerColor) :
-                             (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
-                             
-        if (isPlayerTurn && ((turnPlayerColor === "white" && pieceColor === "white") || (turnPlayerColor === "black" && pieceColor === "black"))) {
+        if (isPlayerTurn && pieceColor === turnPlayerColor) {
             selectedPiece = pieceOnSquare;
             legalSquares = getLegalMovesForPiece(clickedSquareId, pieceOnSquare);
         }
@@ -556,11 +560,10 @@ function drag(ev) {
     const pieceColor = piece.getAttribute("color");
 
     let turnPlayerColor = isMultiplayer ? turnColor : (isWhiteTurn ? 'white' : 'black');
-
     const isPlayerTurn = isMultiplayer ? (myColor === turnPlayerColor) :
                          (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
 
-    if (isPlayerTurn && ((turnPlayerColor === "white" && pieceColor === "white") || (turnPlayerColor === "black" && pieceColor === "black"))) {
+    if (isPlayerTurn && pieceColor === turnPlayerColor) {
         selectedPiece = piece;
         ev.dataTransfer.setData("text", piece.id);
         const startingSquareId = piece.parentNode.id;
@@ -802,7 +805,7 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                     const targetSquareId = coordsToSquareId(nextRow, c);
                     if (targetSquareId === enPassantTargetSquare) {
                         const pawnBesideRow = startRow;
-                        const pawnBesideCol = c;
+                        const pawnBesideCol = toCol;
                         const pieceBeside = boardState[pawnBesideRow][pawnBesideCol];
                         if (pieceBeside && pieceBeside.type === 'pawn' && pieceBeside.color !== pieceColor) {
                             addMove(nextRow, c);
@@ -877,7 +880,7 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
             });
             const kingRow = (pieceColor === 'white') ? 7 : 0;
             const kingMovedFlag = (pieceColor === 'white') ? hasWhiteKingMoved : hasBlackKingMoved;
-            if (!kingMovedFlag && startRow === kingRow && startCol === 4) {
+            if (!kingMovedFlag && startRow === kingRow && startCol === 4 && !forCheckValidation) {
                 const kingsideRookMovedFlag = (pieceColor === 'white') ? hasWhiteKingsideRookMoved : hasBlackKingsideRookMoved;
                 const kingsideRookCol = 7;
                 if (!kingsideRookMovedFlag && boardState[kingRow][5] === null && boardState[kingRow][6] === null &&
@@ -1067,7 +1070,7 @@ function finalizeMove(startSquare, endSquare, promotedTo = '') {
         
         turnColor = turnColor === 'white' ? 'black' : 'white';
         allowMovement = myColor === turnColor;
-        updateTurnIndicator();
+        updateTurnIndicatorMultiplayer();
         checkGameStatus();
         
     } else {
@@ -1087,11 +1090,20 @@ function finalizeMove(startSquare, endSquare, promotedTo = '') {
 }
 
 /**
- * Updates the turn indicator on the UI.
+ * Updates the turn indicator for multiplayer.
  */
-function updateTurnIndicator() {
+function updateTurnIndicatorMultiplayer() {
+    const turnIndicator = document.getElementById('mp-turn-indicator');
     turnIndicator.textContent = `${turnColor.charAt(0).toUpperCase() + turnColor.slice(1)}'s Turn`;
     document.body.style.backgroundColor = turnColor === 'white' ? '#f0f0f0' : '#333';
+}
+
+/**
+ * Updates the player info for multiplayer.
+ */
+function updatePlayerInfoMultiplayer() {
+    const playerInfo = document.getElementById('mp-player-info');
+    playerInfo.textContent = `You are ${myColor} - playing against ${opponentUsername}`;
 }
 
 /**
