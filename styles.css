@@ -33,3 +33,10 @@ body {
 .modal.active {
     display: flex;
 }
+.modal-content {
+    background-color: #2d3748;
+    color: #cbd5e0;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
