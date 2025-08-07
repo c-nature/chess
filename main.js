@@ -1,1862 +1,1047 @@
-let boardSquaresArray = [];
-let positionArray=[];
-let moves = [];
-const castlingSquares = ["g1", "g8", "c1", "c8"];
-let isWhiteTurn = true;
-let enPassantSquare = "blank";
-let allowMovement = true;
-let isOpponentWhite = false;
-let selectedLevel = 1;
-let currentPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-let pgn = "";
-let viewedFEN = currentPosition;
-let viewedIndex = 0;
-positionArray.push(currentPosition);
+// Global board state
+let board = []; // Will be an 8x8 array representing the board
+let legalSquares = [];
+let isWhiteTurn = true; // Track whose turn it is
+let enPassantTargetSquare = null; // Track the square behind a pawn that just moved two squares
+let selectedSquare = null; // Track the currently selected square
+let selectedPiece = null; // Track the currently selected piece
+let pawnPromotionTargetSquareId = null; // Stores the square where pawn promotion happens
 
-const boardSquares = document.getElementsByClassName("square");
-const pieces = document.getElementsByClassName("piece");
+// Castling flags
+let hasWhiteKingMoved = false;
+let hasBlackKingMoved = false;
+let hasWhiteKingsideRookMoved = false; // h1 rook
+let hasWhiteQueensideRookMoved = false; // a1 rook
+let hasBlackKingsideRookMoved = false; // h8 rook
+let hasBlackQueensideRookMoved = false; // a8 rook
+
+// Global Stockfish worker instance - CRITICAL: Initialize only once
+let stockfishWorker = null;
+let evaluations = [null, null, null]; // Array to store evaluations for multipv
+let lines = ["", "", ""]; // Array to store PV lines for each multipv
+let scoreStrings = [null, null, null]; // Array to store scoreString per multipv
+let isAwaitingEvaluation = false; // Flag to prevent sending multiple commands
+let isEngineReady = false; // Flag to check if the engine is ready
+
+const boardSquares = document.getElementsByClassName('square');
+const pieces = document.getElementsByClassName('piece');
 const piecesImages = document.getElementsByTagName("img");
-const chessBoard = document.querySelector(".chessBoard");
-setupBoardSquares();
-setupPieces();
-fillBoardSquaresArray();
-const startingPosition = chessBoard.innerHTML;
 
-function flipBoard() {
-  Array.from(document.getElementsByClassName("piece")).forEach(div=>{
-    div.style.transform = div.style.transform === "rotate(180deg)" ? "rotate(0deg)" : "rotate(180deg)";
-  });
-  Array.from(document.getElementsByClassName("coordinate")).forEach(div=>{
-    div.style.transform = div.style.transform === "rotate(180deg)" ? "rotate(0deg)" : "rotate(180deg)";
-    if(div.classList.contains("rank"))
-     div.style.height = "20%";
-  });
-  chessBoard.style.transform = chessBoard.style.transform === "rotate(180deg)" ? "rotate(0deg)" : "rotate(180deg)";
-  isOpponentWhite = !isOpponentWhite;
- currentPosition = generateFEN(boardSquaresArray);
-}
+// Promotion UI elements
+const promotionOverlay = document.getElementById('promotion-overlay');
+const promotionChoices = document.querySelector('.promotion-choices');
 
+// Ensure DOM is fully loaded before setting up event listeners
+document.addEventListener('DOMContentLoaded', (event) => {
+    setupBoardSquares();
+    initializeBoardState(); // Initialize the internal board state
+    setupPieces(); // Setup drag listeners for initial pieces
+    renderBoard(); // Render the board based on initial state
+    initializeEvaluationElements(); // Initialize evaluation display elements cache
+    finalizeMove();
+});
 
-function fillBoardSquaresArray() {
-  const boardSquares = document.getElementsByClassName("square");
-  for (let i = 0; i < boardSquares.length; i++) {
-    let row = 8 - Math.floor(i / 8);
-    let column = String.fromCharCode(97 + (i % 8));
-    let square = boardSquares[i];
-    square.id = column + row;
-    let color = "";
-    let pieceType = "";
-    let pieceId = "";
-    if (square.querySelector(".piece")) {
-      color = square.querySelector(".piece").getAttribute("color");
-      pieceType = square.querySelector(".piece").classList[1];
-      pieceId = square.querySelector(".piece").id;
-    } else {
-      color = "blank";
-      pieceType = "blank";
-      pieceId = "blank";
-    }
-    let arrayElement = {
-      squareId: square.id,
-      pieceColor: color,
-      pieceType: pieceType,
-      pieceId: pieceId,
-    };
-    boardSquaresArray.push(arrayElement);
-  }
-}
-function updateBoardSquaresArray(
-  currentSquareId,
-  destinationSquareId,
-  boardSquaresArray,
-  promotionOption = "blank"
-) {
-  let currentSquare = boardSquaresArray.find(
-    (element) => element.squareId === currentSquareId
-  );
-  let destinationSquareElement = boardSquaresArray.find(
-    (element) => element.squareId === destinationSquareId
-  );
-  let pieceColor = currentSquare.pieceColor;
-  let pieceType =
-    promotionOption == "blank" ? currentSquare.pieceType : promotionOption;
-  let pieceId =
-    promotionOption == "blank"
-      ? currentSquare.pieceId
-      : promotionOption + currentSquare.pieceId;
-  destinationSquareElement.pieceColor = pieceColor;
-  destinationSquareElement.pieceType = pieceType;
-  destinationSquareElement.pieceId = pieceId;
-  currentSquare.pieceColor = "blank";
-  currentSquare.pieceType = "blank";
-  currentSquare.pieceId = "blank";
-}
-
-function makeMove(
-  startingSquareId,
-  destinationSquareId,
-  pieceType,
-  pieceColor,
-  captured,
-  promotedTo = "blank"
-) {
-  moves.push({
-    from: startingSquareId,
-    to: destinationSquareId,
-    pieceType: pieceType,
-    pieceColor: pieceColor,
-    captured: captured,
-    promotedTo: promotedTo,
-  });
-}
-
-function generateFEN(boardSquares){
-  let fen="";
-  let rank=8;
-  while(rank>=1){
-    for(let file="a";file<="h";file=String.fromCharCode(file.charCodeAt(0)+1)){
-      const square = boardSquares.find((element)=>element.squareId===`${file}${rank}`);
-      if(square && square.pieceType){
-        let pieceNotation ="";
-        switch (square.pieceType){
-          case "pawn":
-            pieceNotation = "p";
-            break;
-            case "bishop":
-            pieceNotation = "b";
-            break;
-            case "knight":
-            pieceNotation = "n";
-            break;
-            case "rook":
-            pieceNotation = "r";
-            break;
-            case "queen":
-            pieceNotation = "q";
-            break;
-            case "king":
-            pieceNotation = "k";
-            break;
-            case "blank":
-            pieceNotation = "blank";
-            break;
-        }
-        fen+=square.pieceColor === "white" ? pieceNotation.toUpperCase() : pieceNotation;
-      }
-    }
-    if(rank>1) {
-      fen+="/";
-    }
-    rank--;
-  }
-  fen=fen.replace(new RegExp("blankblankblankblankblankblankblankblank","g"),"8");
-  fen=fen.replace(new RegExp("blankblankblankblankblankblankblank","g"),"7");
-  fen=fen.replace(new RegExp("blankblankblankblankblankblank","g"),"6");
-  fen=fen.replace(new RegExp("blankblankblankblankblank","g"),"5");
-  fen=fen.replace(new RegExp("blankblankblankblank","g"),"4");
-  fen=fen.replace(new RegExp("blankblankblank","g"),"3");
-  fen=fen.replace(new RegExp("blankblank","g"),"2");
-  fen=fen.replace(new RegExp("blank","g"),"1");
-
-  fen+= isWhiteTurn ? " w " : " b ";
-
-  let castlingString="";
-
-  let shortCastlePossibleForWhite = !kingHasMoved("white") &&!rookHasMoved("white","h1");
-  let longCastlePossibleForWhite = !kingHasMoved("white") &&!rookHasMoved("white","a1");
-  let shortCastlePossibleForBlack = !kingHasMoved("black") &&!rookHasMoved("black","h8");
-  let longCastlePossibleForBlack = !kingHasMoved("black") &&!rookHasMoved("black","a8");
-
-  if(shortCastlePossibleForWhite) castlingString+="K";
-  if(longCastlePossibleForWhite) castlingString+="Q";
-  if(shortCastlePossibleForBlack) castlingString+="k";
-  if(longCastlePossibleForBlack) castlingString+="q";
-  if(castlingString=="") castlingString+="-";
-  castlingString+=" ";
-  fen+=castlingString;
-
-  fen+=enPassantSquare=="blank" ? "-" : enPassantSquare;
-
-  let fiftyMovesRuleCount=getFiftyMovesRuleCount();
-  fen+=" "+fiftyMovesRuleCount;
-  let moveCount=Math.floor(moves.length/2)+1;
-  fen+=" "+moveCount;
-  //console.log(fen);
-  return fen;
-
-
-}
-
-function performCastling(
-  piece,
-  pieceColor,
-  startingSquareId,
-  destinationSquareId,
-  boardSquaresArray
-) {
-  let rookId, rookDestinationSquareId, checkSquareId;
-  if (destinationSquareId == "g1") {
-    rookId = "rookh1";
-    rookDestinationSquareId = "f1";
-    checkSquareId = "f1";
-  } else if (destinationSquareId == "c1") {
-    rookId = "rooka1";
-    rookDestinationSquareId = "d1";
-    checkSquareId = "d1";
-  } else if (destinationSquareId == "g8") {
-    rookId = "rookh8";
-    rookDestinationSquareId = "f8";
-    checkSquareId = "f8";
-  } else if (destinationSquareId == "c8") {
-    rookId = "rooka8";
-    rookDestinationSquareId = "d8";
-    checkSquareId = "d8";
-  }
-  if (isKingInCheck(checkSquareId, pieceColor, boardSquaresArray)) return;
-  let rook = document.getElementById(rookId);
-  let rookDestinationSquare = document.getElementById(rookDestinationSquareId);
-  rookDestinationSquare.appendChild(rook);
-  updateBoardSquaresArray(
-    rook.id.slice(-2),
-    rookDestinationSquare.id,
-    boardSquaresArray
-  );
-
-  const destinationSquare = document.getElementById(destinationSquareId);
-  destinationSquare.appendChild(piece);
-  isWhiteTurn = !isWhiteTurn;
-  updatePGN(startingSquareId,destinationSquareId,isWhiteTurn);
-  updateBoardSquaresArray(
-    startingSquareId,
-    destinationSquareId,
-    boardSquaresArray
-  );
-  let captured = false;
-
-  makeMove(startingSquareId, destinationSquareId, "king", pieceColor, captured);
-  checkForEndGame();
-  return;
-}
-function performEnPassant(
-  piece,
-  pieceColor,
-  startingSquareId,
-  destinationSquareId
-) {
-  let file = destinationSquareId[0];
-  let rank = parseInt(destinationSquareId[1]);
-  rank += pieceColor === "white" ? -1 : 1;
-  let squareBehindId = file + rank;
-
-  const squareBehindElement = document.getElementById(squareBehindId);
-  while (squareBehindElement.firstChild) {
-    squareBehindElement.removeChild(squareBehindElement.firstChild);
-  }
-
-  let squareBehind = boardSquaresArray.find(
-    (element) => element.squareId === squareBehindId
-  );
-  squareBehind.pieceColor = "blank";
-  squareBehind.pieceType = "blank";
-  squareBehind.pieceId = "blank";
-
-  const destinationSquare = document.getElementById(destinationSquareId);
-  destinationSquare.appendChild(piece);
-  isWhiteTurn = !isWhiteTurn;
-
-  updatePGN(startingSquareId,destinationSquareId,isWhiteTurn);
-
-  updateBoardSquaresArray(
-    startingSquareId,
-    destinationSquareId,
-    boardSquaresArray
-  );
-  let captured = true;
-  makeMove(startingSquareId, destinationSquareId, "pawn", pieceColor, captured);
-
-  enPassantSquare="blank";
-  checkForEndGame();
-  return;
-}
-function displayPromotionChoices(
-  pieceId,
-  pieceColor,
-  startingSquareId,
-  destinationSquareId,
-  captured,
-  promotedTo = "blank"
-) {
-  if(promotedTo != "blank") {
-    performPromotion(pieceId,promotedTo,pieceColor,startingSquareId,destinationSquareId,captured);
-    return;
-  }
-
-  let file = destinationSquareId[0];
-  let rank = parseInt(destinationSquareId[1]);
-  let rank1 = pieceColor === "white" ? rank - 1 : rank + 1;
-  let rank2 = pieceColor === "white" ? rank - 2 : rank + 2;
-  let rank3 = pieceColor === "white" ? rank - 3 : rank + 3;
-
-  let squareBehindId1 = file + rank1;
-  let squareBehindId2 = file + rank2;
-  let squareBehindId3 = file + rank3;
-
-  const destinationSquare = document.getElementById(destinationSquareId);
-  const squareBehind1 = document.getElementById(squareBehindId1);
-  const squareBehind2 = document.getElementById(squareBehindId2);
-  const squareBehind3 = document.getElementById(squareBehindId3);
-
-  let piece1 = createChessPiece("queen", pieceColor, "promotionOption");
-  let piece2 = createChessPiece("knight", pieceColor, "promotionOption");
-  let piece3 = createChessPiece("rook", pieceColor, "promotionOption");
-  let piece4 = createChessPiece("bishop", pieceColor, "promotionOption");
-
-  destinationSquare.appendChild(piece1);
-  squareBehind1.appendChild(piece2);
-  squareBehind2.appendChild(piece3);
-  squareBehind3.appendChild(piece4);
-  
-  let promotionOptions = document.getElementsByClassName("promotionOption");
-  for (let i = 0; i < promotionOptions.length; i++) {
-    let pieceType = promotionOptions[i].classList[1];
-
-  
-    promotionOptions[i].addEventListener("click", function () {
-      sendMove(startingSquareId,destinationSquareId,pieceType,pieceColor,captured,pieceType);
-
-      performPromotion(
-        pieceId,
-        pieceType,
-        pieceColor,
-        startingSquareId,
-        destinationSquareId,
-        captured
-      );
-
-    });
-  }
-}
-
-function createChessPiece(pieceType, color, pieceClass) {
-  let pieceName =
-    color.charAt(0).toUpperCase() +
-    color.slice(1) +
-    "-" +
-    pieceType.charAt(0).toUpperCase() +
-    pieceType.slice(1) +
-    ".png";
-  let pieceDiv = document.createElement("div");
-  pieceDiv.className = `${pieceClass} ${pieceType}`;
-  pieceDiv.setAttribute("color", color);
-  let img = document.createElement("img");
-  img.src = pieceName;
-  img.alt = pieceType;
-  if(isOpponentWhite)
-    pieceDiv.style.transform = "rotate(180deg)";
-  pieceDiv.appendChild(img);
-  return pieceDiv;
-}
-
-chessBoard.addEventListener("click", clearPromotionOptions);
-
-function clearPromotionOptions() {
-  for (let i = 0; i < boardSquares.length; i++) {
-    let style = getComputedStyle(boardSquares[i]);
-    let backgroundColor = style.backgroundColor;
-    let rgbaColor = backgroundColor.replace("0.5)", "1)");
-    boardSquares[i].style.backgroundColor = rgbaColor;
-    boardSquares[i].style.opacity = 1;
-
-    if (boardSquares[i].querySelector(".piece"))
-      boardSquares[i].querySelector(".piece").style.opacity = 1;
-  }
-  let elementsToRemove = chessBoard.querySelectorAll(".promotionOption");
-  elementsToRemove.forEach(function (element) {
-    element.parentElement.removeChild(element);
-  });
-  allowMovement = true;
-}
-
-function updateBoardSquaresOpacity(startingSquareId) {
-  for (let i = 0; i < boardSquares.length; i++) {
-    
-    if(boardSquares[i].id==startingSquareId)
-    boardSquares[i].querySelector(".piece").style.opacity = 0;
-
-    if (!boardSquares[i].querySelector(".promotionOption")) {
-      boardSquares[i].style.opacity = 0.5;
-    } else {
-      let style = getComputedStyle(boardSquares[i]);
-      let backgroundColor = style.backgroundColor;
-      let rgbaColor = backgroundColor
-        .replace("rgb", "rgba")
-        .replace(")", ",0.5)");
-      boardSquares[i].style.backgroundColor = rgbaColor;
-
-      if (boardSquares[i].querySelector(".piece"))
-        boardSquares[i].querySelector(".piece").style.opacity = 0;
-    }
-  }
-}
-
-function performPromotion(
-  pieceId,
-  pieceType,
-  pieceColor,
-  startingSquareId,
-  destinationSquareId,
-  captured
-) {
-  clearPromotionOptions();
-  promotionPiece = pieceType;
-  piece = createChessPiece(pieceType, pieceColor, "piece");
-
-  piece.addEventListener("dragstart", drag);
-  piece.setAttribute("draggable", true);
-  piece.firstChild.setAttribute("draggable", false);
-  piece.id = pieceType + pieceId;
-
-  const startingSquare = document.getElementById(startingSquareId);
-  while (startingSquare.firstChild) {
-    startingSquare.removeChild(startingSquare.firstChild);
-  }
-  const destinationSquare = document.getElementById(destinationSquareId);
-
-  if (captured) {
-    let children = destinationSquare.children;
-    for (let i = 0; i < children.length; i++) {
-      if (!children[i].classList.contains("coordinate")) {
-        destinationSquare.removeChild(children[i]);
-      }
-    }
-  }
-
-  destinationSquare.appendChild(piece);
-  isWhiteTurn = !isWhiteTurn;
-
-  updatePGN(startingSquareId,destinationSquareId,isWhiteTurn,pieceType);
-  updateBoardSquaresArray(
-    startingSquareId,
-    destinationSquareId,
-    boardSquaresArray,
-    pieceType
-  );
-
-  makeMove(
-    startingSquareId,
-    destinationSquareId,
-    pieceType,
-    pieceColor,
-    captured,
-    pieceType
-  );
-
-  checkForEndGame();
-  return;
-}
-function deepCopyArray(array) {
-  let arrayCopy = array.map((element) => {
-    return { ...element };
-  });
-  return arrayCopy;
-}
+/**
+ * Sets up event listeners and IDs for each square on the chessboard.
+ * This is primarily for initial DOM setup and event listeners.
+ */
 function setupBoardSquares() {
-  for (let i = 0; i < boardSquares.length; i++) {
-    boardSquares[i].addEventListener("dragover", allowDrop);
-    boardSquares[i].addEventListener("drop", drop);
-    let row = 8 - Math.floor(i / 8);
-    let column = String.fromCharCode(97 + (i % 8));
-    let square = boardSquares[i];
-    square.id = column + row;
-  }
+    for (let i = 0; i < boardSquares.length; i++) {
+        boardSquares[i].addEventListener('dragover', allowDrop);
+        boardSquares[i].addEventListener('drop', drop);
+        boardSquares[i].addEventListener('click', selectSquare);
+
+        // Calculate row and column for ID
+        let row = 8 - Math.floor(i / 8); // Ranks 8 to 1
+        let column = String.fromCharCode(97 + (i % 8)); // Files a to h
+        let square = boardSquares[i];
+        square.id = column + row;
+    }
 }
+
+/**
+ * Sets up draggable attribute and IDs for each piece.
+ * This function is called initially and after every renderBoard() call.
+ */
 function setupPieces() {
-  for (let i = 0; i < pieces.length; i++) {
-    pieces[i].addEventListener("dragstart", drag);
-    pieces[i].setAttribute("draggable", true);
-    pieces[i].id =
-      pieces[i].className.split(" ")[1] + pieces[i].parentElement.id;
-  }
-  for (let i = 0; i < piecesImages.length; i++) {
-    piecesImages[i].setAttribute("draggable", false);
-  }
+    // Remove existing drag listeners to prevent duplicates
+    for (let i = 0; i < pieces.length; i++) {
+        pieces[i].removeEventListener('dragstart', drag);
+    }
+    // Get fresh list of pieces after renderBoard
+    const currentPieces = document.getElementsByClassName('piece');
+    for (let i = 0; i < currentPieces.length; i++) {
+        currentPieces[i].addEventListener('dragstart', drag);
+        currentPieces[i].setAttribute('draggable', true);
+        // Piece ID format: pieceType + squareId (e.g., "rook-a8")
+        currentPieces[i].id = currentPieces[i].classList[1] + "-" + currentPieces[i].parentElement.id;
+    }
+    const currentPieceImages = document.getElementsByTagName("img");
+    for (let i = 0; i < currentPieceImages.length; i++) {
+        currentPieceImages[i].setAttribute('draggable', false); // Prevent image itself from being draggable
+    }
 }
-function allowDrop(ev) {
-  ev.preventDefault();
+
+/**
+ * Helper to convert square ID (e.g., "a1") to board indices [row, col].
+ * Board array: board[0][0] is a8, board[7][7] is h1.
+ * @param {string} squareId The ID of the square (e.g., "a1").
+ * @returns {Array<number>} An array [rowIndex, colIndex].
+ */
+function squareIdToCoords(squareId) {
+    const file = squareId.charCodeAt(0) - 97; // 'a' -> 0, 'b' -> 1, ...
+    const rank = parseInt(squareId.charAt(1)); // '1' -> 1, '2' -> 2, ...
+    const rowIndex = 8 - rank; // Rank 8 is row 0, Rank 1 is row 7
+    const colIndex = file;
+    return [rowIndex, colIndex];
 }
+
+/**
+ * Helper to convert board indices [row, col] to square ID (e.g., "a1").
+ * @param {number} rowIndex The row index (0-7).
+ * @param {number} colIndex The column index (0-7).
+ * @returns {string} The square ID (e.g., "a1").
+ */
+function coordsToSquareId(rowIndex, colIndex) {
+    const fileChar = String.fromCharCode(97 + colIndex);
+    const rankNum = 8 - rowIndex; // Convert row index back to rank number
+    return fileChar + rankNum;
+}
+
+/**
+ * Initializes the internal board state based on the current HTML.
+ */
+function initializeBoardState() {
+    board = Array(8).fill(null).map(() => Array(8).fill(null));
+    for (let i = 0; i < boardSquares.length; i++) {
+        const squareElement = boardSquares[i];
+        const [row, col] = squareIdToCoords(squareElement.id);
+        const pieceElement = squareElement.querySelector('.piece');
+        if (pieceElement) {
+            board[row][col] = {
+                type: pieceElement.classList[1], // e.g., 'rook', 'pawn'
+                color: pieceElement.getAttribute('color') // 'white' or 'black'
+            };
+        }
+    }
+    // Initialize castling flags
+    hasWhiteKingMoved = false;
+    hasBlackKingMoved = false;
+    hasWhiteKingsideRookMoved = false;
+    hasWhiteQueensideRookMoved = false;
+    hasBlackKingsideRookMoved = false;
+    hasBlackQueensideRookMoved = false;
+    // Initialize en passant target
+    enPassantTargetSquare = null; // Ensure this is null at game start
+}
+
+/**
+ * Updates the DOM to reflect the internal board state.
+ * Clears and re-appends pieces to squares.
+ */
+function renderBoard() {
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const squareId = coordsToSquareId(r, c);
+            const squareElement = document.getElementById(squareId);
+
+            // Clear existing piece (and its image) from the DOM square
+            const existingPiece = squareElement.querySelector('.piece');
+            if (existingPiece) {
+                squareElement.removeChild(existingPiece);
+            }
+
+            const piece = board[r][c];
+            if (piece) {
+                // Create new piece div and image
+                const pieceDiv = document.createElement('div');
+                pieceDiv.classList.add('piece', piece.type);
+                pieceDiv.setAttribute('color', piece.color);
+                pieceDiv.id = piece.type + "-" + squareId; // Re-assign ID for drag/drop
+                pieceDiv.setAttribute('draggable', true);
+
+                const pieceImg = document.createElement('img');
+                // Construct image source based on piece color and type (e.g., 'black-Rook.png')
+                pieceImg.src = `${piece.color}-${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.png`;
+                pieceImg.alt = `${piece.color} ${piece.type}`;
+                pieceImg.setAttribute('draggable', false); // Prevent image itself from being draggable
+
+                pieceDiv.appendChild(pieceImg);
+                squareElement.appendChild(pieceDiv);
+            }
+        }
+    }
+    // Re-setup drag listeners for newly rendered pieces, as old elements are removed
+    setupPieces();
+}
+
+/**
+ * Placeholder for selecting a square by click.
+ * @param {Event} event The click event.
+ */
+function selectSquare(event) {
+    console.log("Square clicked:", event.currentTarget.id);
+}
+
+/**
+ * Allows a drop operation to occur on a valid drop target.
+ * @param {Event} event The dragover event.
+ */
+function allowDrop(event) {
+    event.preventDefault();
+}
+
+/**
+ * Handles the start of a drag operation for a chess piece.
+ * @param {Event} ev The dragstart event.
+ */
 function drag(ev) {
-  if (!allowMovement) return;
+    const piece = ev.target.closest('.piece');
+    if (!piece) return;
 
-  const piece = ev.target;
-  const pieceColor = piece.getAttribute("color");
-  const pieceType = piece.classList[1];
-  const pieceId = piece.id;
-
-  if (
-    (isWhiteTurn && pieceColor == "white") ||
-    (!isWhiteTurn && pieceColor == "black")
-  ) {
-    const startingSquareId = piece.parentNode.id;
-    ev.dataTransfer.setData("text", piece.id + "|" + startingSquareId);
-    const pieceObject = {
-      pieceColor: pieceColor,
-      pieceType: pieceType,
-      pieceId: pieceId,
-    };
-    let legalSquares = getPossibleMoves(
-      startingSquareId,
-      pieceObject,
-      boardSquaresArray
-    );
-    let legalSquaresJson = JSON.stringify(legalSquares);
-    ev.dataTransfer.setData("application/json", legalSquaresJson);
-  }
-}
-function drop(ev) {
-  let isEngineTurn =(isOpponentWhite && isWhiteTurn) || (!isOpponentWhite && !isWhiteTurn);
-  if(isEngineTurn) return;
-  ev.preventDefault();
-  const destinationSquare = ev.currentTarget;
-  let destinationSquareId = destinationSquare.id;
-  let data = ev.dataTransfer.getData("text");
-  let [pieceId, startingSquareId] = data.split("|");
-  displayMove(startingSquareId,destinationSquareId);
-  highlightMove(positionArray.length-1);
-}
-
-function displayMove(startingSquareId,destinationSquareId,promotedTo="blank",fromServer=false){
-  if(fromServer) {
-    moveToEnd();
-  }
-
-  const pieceObject = getPieceAtSquare(startingSquareId,boardSquaresArray);
-  const piece = document.getElementById(pieceObject.pieceId);
-  const pieceId = pieceObject.pieceId;
-  const pieceColor = pieceObject.pieceColor;
-  const pieceType = pieceObject.pieceType;
-  let destinationSquare = document.getElementById(destinationSquareId);
-  let legalSquares = getPossibleMoves(startingSquareId,pieceObject,boardSquaresArray);
-  
-  legalSquares = isMoveValidAgainstCheck(
-    legalSquares,
-    startingSquareId,
-    pieceColor,
-    pieceType
-  );
-  if (pieceType == "king") {
-    let isCheck = isKingInCheck(
-      destinationSquareId,
-      pieceColor,
-      boardSquaresArray
-    );
-    if (isCheck) return;
-  }
-  let squareContent = getPieceAtSquare(destinationSquareId, boardSquaresArray);
-  if (
-    squareContent.pieceColor == "blank" &&
-    legalSquares.includes(destinationSquareId)
-  ) {
-    let isCheck = false;
-    if (pieceType == "king")
-      isCheck = isKingInCheck(startingSquareId, pieceColor, boardSquaresArray);
-    if (
-      pieceType == "king" &&
-      !kingHasMoved(pieceColor) &&
-      castlingSquares.includes(destinationSquareId) &&
-      !isCheck
-    ) {
-      if(!fromServer)
-        sendMove(startingSquareId,destinationSquareId,pieceType,pieceColor,false);
-
-      performCastling(
-        piece,
-        pieceColor,
-        startingSquareId,
-        destinationSquareId,
-        boardSquaresArray
-      );
- 
-
-      return;
-
-    }
-    if (
-      pieceType == "king" &&
-      !kingHasMoved(pieceColor) &&
-      castlingSquares.includes(destinationSquareId) &&
-      isCheck
-    )
-      return;
-
-
-    if (pieceType == "pawn" && enPassantSquare == destinationSquareId) {
-      if(!fromServer)
-        sendMove(startingSquareId,destinationSquareId,pieceType,pieceColor,false);
-      performEnPassant(
-        piece,
-        pieceColor,
-        startingSquareId,
-        destinationSquareId
-      );
-      return;
-    }
-    enPassantSquare = "blank";
-    if (
-      pieceType == "pawn" &&
-      (destinationSquareId.charAt(1) == 8 || destinationSquareId.charAt(1) == 1)
-    ) {
-      allowMovement = false;
-      displayPromotionChoices(
-        pieceId,
-        pieceColor,
-        startingSquareId,
-        destinationSquareId,
-        false,
-        promotedTo
-      );
-      if(promotedTo == "blank")
-       updateBoardSquaresOpacity(startingSquareId);
-      return;
-    }
-    destinationSquare.appendChild(piece);
-    isWhiteTurn = !isWhiteTurn;
-
-    updatePGN(startingSquareId,destinationSquareId,isWhiteTurn);
-
-    updateBoardSquaresArray(
-      startingSquareId,
-      destinationSquareId,
-      boardSquaresArray
-    );
-    let captured = false;
-
-    makeMove(
-      startingSquareId,
-      destinationSquareId,
-      pieceType,
-      pieceColor,
-      captured
-    );
-
-    if(!fromServer)
-    sendMove(startingSquareId,destinationSquareId,pieceType,pieceColor,captured);
-
-    checkForEndGame();
-    return;
-  }
-  if (
-    squareContent.pieceColor != "blank" &&
-    legalSquares.includes(destinationSquareId)
-  ) {
-    if (
-      pieceType == "pawn" &&
-      (destinationSquareId.charAt(1) == 8 || destinationSquareId.charAt(1) == 1)
-    ) {
-      allowMovement = false;
-      displayPromotionChoices(
-        pieceId,
-        pieceColor,
-        startingSquareId,
-        destinationSquareId,
-        true,
-        promotedTo
-      );
-      if(promotedTo =="blank")
-      updateBoardSquaresOpacity(startingSquareId);
-      return;
-    }
-    let children = destinationSquare.children;
-    for (let i = 0; i < children.length; i++) {
-      if (!children[i].classList.contains("coordinate")) {
-        destinationSquare.removeChild(children[i]);
-      }
-    }
-
-    destinationSquare.appendChild(piece);
-    isWhiteTurn = !isWhiteTurn;
-
-    updatePGN(startingSquareId,destinationSquareId,isWhiteTurn);
-
-    updateBoardSquaresArray(
-      startingSquareId,
-      destinationSquareId,
-      boardSquaresArray
-    );
-    let captured = true;
-
-    makeMove(
-      startingSquareId,
-      destinationSquareId,
-      pieceType,
-      pieceColor,
-      captured
-    );
-
-    if(!fromServer)
-    sendMove(startingSquareId,destinationSquareId,pieceType,pieceColor,captured);
-    checkForEndGame();
-    return;
-  }
-}
-
-function getPossibleMoves(startingSquareId, piece, boardSquaresArray) {
-  const pieceColor = piece.pieceColor;
-  const pieceType = piece.pieceType;
-  let legalSquares = [];
-  if (pieceType == "rook") {
-    legalSquares = getRookMoves(
-      startingSquareId,
-      pieceColor,
-      boardSquaresArray
-    );
-    return legalSquares;
-  }
-  if (pieceType == "bishop") {
-    legalSquares = getBishopMoves(
-      startingSquareId,
-      pieceColor,
-      boardSquaresArray
-    );
-    return legalSquares;
-  }
-  if (pieceType == "queen") {
-    legalSquares = getQueenMoves(
-      startingSquareId,
-      pieceColor,
-      boardSquaresArray
-    );
-    return legalSquares;
-  }
-  if (pieceType == "knight") {
-    legalSquares = getKnightMoves(
-      startingSquareId,
-      pieceColor,
-      boardSquaresArray
-    );
-    return legalSquares;
-  }
-
-  if (pieceType == "pawn") {
-    legalSquares = getPawnMoves(
-      startingSquareId,
-      pieceColor,
-      boardSquaresArray
-    );
-    return legalSquares;
-  }
-  if (pieceType == "king") {
-    legalSquares = getKingMoves(
-      startingSquareId,
-      pieceColor,
-      boardSquaresArray
-    );
-    return legalSquares;
-  }
-}
-
-function getPawnMoves(startingSquareId, pieceColor, boardSquaresArray) {
-  let diogonalSquares = checkPawnDiagonalCaptures(
-    startingSquareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  let forwardSquares = checkPawnForwardMoves(
-    startingSquareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  let legalSquares = [...diogonalSquares, ...forwardSquares];
-  return legalSquares;
-}
-
-function checkPawnDiagonalCaptures(
-  startingSquareId,
-  pieceColor,
-  boardSquaresArray
-) {
-  const file = startingSquareId.charAt(0);
-  const rank = startingSquareId.charAt(1);
-  const rankNumber = parseInt(rank);
-  let legalSquares = [];
-  let currentFile = file;
-  let currentRank = rankNumber;
-  let currentSquareId = currentFile + currentRank;
-  const direction = pieceColor == "white" ? 1 : -1;
-  currentRank += direction;
-  for (let i = -1; i <= 1; i += 2) {
-    currentFile = String.fromCharCode(file.charCodeAt(0) + i);
-    if (currentFile >= "a" && currentFile <= "h" && currentRank<=8 && currentRank>=1) {
-      currentSquareId = currentFile + currentRank;
-      let currentSquare = boardSquaresArray.find(
-        (element) => element.squareId === currentSquareId
-      );
-      
-      let squareContent = currentSquare.pieceColor;
-      if (squareContent != "blank" && squareContent != pieceColor)
-        legalSquares.push(currentSquareId);
-
-      if (squareContent == "blank") {
-        currentSquareId = currentFile + rank;
-        let pawnStartingSquareRank = rankNumber + direction * 2;
-        let pawnStartingSquareId = currentFile + pawnStartingSquareRank;
-
-        if (
-          enPassantPossible(currentSquareId, pawnStartingSquareId, direction)
-        ) {
-          let pawnStartingSquareRank = rankNumber + direction;
-          let enPassantSquare = currentFile + pawnStartingSquareRank;
-          legalSquares.push(enPassantSquare);
-        }
-      }
-    }
-  }
-  return legalSquares;
-}
-function enPassantPossible(currentSquareId, pawnStartingSquareId, direction) {
-  if (moves.length == 0) return false;
-  let lastMove = moves[moves.length - 1];
-  if (
-    !(lastMove.to === currentSquareId && lastMove.from === pawnStartingSquareId)
-  )
-    return false;
-
-  let file = currentSquareId[0];
-  let rank = parseInt(currentSquareId[1]);
-  rank += direction;
-  let squareBehindId = file + rank;
-  enPassantSquare = squareBehindId;
-  return true;
-}
-function checkPawnForwardMoves(
-  startingSquareId,
-  pieceColor,
-  boardSquaresArray
-) {
-  const file = startingSquareId.charAt(0);
-  const rank = startingSquareId.charAt(1);
-  const rankNumber = parseInt(rank);
-  let legalSquares = [];
-  let currentFile = file;
-  let currentRank = rankNumber;
-  let currentSquareId = currentFile + currentRank;
-  const direction = pieceColor == "white" ? 1 : -1;
-  currentRank += direction;
-  currentSquareId = currentFile + currentRank;
-  let currentSquare = boardSquaresArray.find(
-    (element) => element.squareId === currentSquareId
-  );
-  let squareContent = currentSquare.pieceColor;
-  if (squareContent != "blank") return legalSquares;
-  legalSquares.push(currentSquareId);
-  if (
-    !(
-      (rankNumber == 2 && pieceColor == "white") ||
-      (rankNumber == 7 && pieceColor == "black")
-    )
-  )
-    return legalSquares;
-  currentRank += direction;
-  currentSquareId = currentFile + currentRank;
-  currentSquare = boardSquaresArray.find(
-    (element) => element.squareId === currentSquareId
-  );
-  squareContent = currentSquare.pieceColor;
-  if (squareContent != "blank")
-    if (squareContent != "blank") return legalSquares;
-  legalSquares.push(currentSquareId);
-  return legalSquares;
-}
-function getKnightMoves(startingSquareId, pieceColor, boardSquaresArray) {
-  const file = startingSquareId.charCodeAt(0) - 97;
-  const rank = startingSquareId.charAt(1);
-  const rankNumber = parseInt(rank);
-  let currentFile = file;
-  let currentRank = rankNumber;
-  let legalSquares = [];
-
-  const moves = [
-    [-2, 1],
-    [-1, 2],
-    [1, 2],
-    [2, 1],
-    [2, -1],
-    [1, -2],
-    [-1, -2],
-    [-2, -1],
-  ];
-  moves.forEach((move) => {
-    currentFile = file + move[0];
-    currentRank = rankNumber + move[1];
-    if (
-      currentFile >= 0 &&
-      currentFile <= 7 &&
-      currentRank > 0 &&
-      currentRank <= 8
-    ) {
-      let currentSquareId = String.fromCharCode(currentFile + 97) + currentRank;
-      let currentSquare = boardSquaresArray.find(
-        (element) => element.squareId === currentSquareId
-      );
-      let squareContent = currentSquare.pieceColor;
-      if (squareContent != "blank" && squareContent == pieceColor)
-        return legalSquares;
-      legalSquares.push(String.fromCharCode(currentFile + 97) + currentRank);
-    }
-  });
-  return legalSquares;
-}
-function getRookMoves(startingSquareId, pieceColor, boardSquaresArray) {
-  let moveToEighthRankSquares = moveToEighthRank(
-    startingSquareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  let moveToFirstRankSquares = moveToFirstRank(
-    startingSquareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  let moveToAFileSquares = moveToAFile(
-    startingSquareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  let moveToHFileSquares = moveToHFile(
-    startingSquareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  let legalSquares = [
-    ...moveToEighthRankSquares,
-    ...moveToFirstRankSquares,
-    ...moveToAFileSquares,
-    ...moveToHFileSquares,
-  ];
-  return legalSquares;
-}
-function getBishopMoves(startingSquareId, pieceColor, boardSquaresArray) {
-  let moveToEighthRankHFileSquares = moveToEighthRankHFile(
-    startingSquareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  let moveToEighthRankAFileSquares = moveToEighthRankAFile(
-    startingSquareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  let moveToFirstRankHFileSquares = moveToFirstRankHFile(
-    startingSquareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  let moveToFirstRankAFileSquares = moveToFirstRankAFile(
-    startingSquareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  let legalSquares = [
-    ...moveToEighthRankHFileSquares,
-    ...moveToEighthRankAFileSquares,
-    ...moveToFirstRankHFileSquares,
-    ...moveToFirstRankAFileSquares,
-  ];
-  return legalSquares;
-}
-function getQueenMoves(startingSquareId, pieceColor, boardSquaresArray) {
-  let bishopMoves = getBishopMoves(
-    startingSquareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  let rookMoves = getRookMoves(startingSquareId, pieceColor, boardSquaresArray);
-  let legalSquares = [...bishopMoves, ...rookMoves];
-  return legalSquares;
-}
-function getKingMoves(startingSquareId, pieceColor, boardSquaresArray) {
-  const file = startingSquareId.charCodeAt(0) - 97; // get the second character of the string
-  const rank = startingSquareId.charAt(1); // get the second character of the string
-  const rankNumber = parseInt(rank); // convert the second character to a number
-  let currentFile = file;
-  let currentRank = rankNumber;
-  let legalSquares = [];
-  const moves = [
-    [0, 1],
-    [0, -1],
-    [1, 1],
-    [1, -1],
-    [-1, 0],
-    [-1, 1],
-    [-1, -1],
-    [1, 0],
-  ];
-
-  moves.forEach((move) => {
-    let currentFile = file + move[0];
-    let currentRank = rankNumber + move[1];
-
-    if (
-      currentFile >= 0 &&
-      currentFile <= 7 &&
-      currentRank > 0 &&
-      currentRank <= 8
-    ) {
-      let currentSquareId = String.fromCharCode(currentFile + 97) + currentRank;
-      let currentSquare = boardSquaresArray.find(
-        (element) => element.squareId === currentSquareId
-      );
-      let squareContent = currentSquare.pieceColor;
-      if (squareContent != "blank" && squareContent == pieceColor) {
-        return legalSquares;
-      }
-      legalSquares.push(String.fromCharCode(currentFile + 97) + currentRank);
-    }
-  });
-  let shortCastleSquare = isShortCastlePossible(pieceColor, boardSquaresArray);
-  let longCastleSquare = isLongCastlePossible(pieceColor, boardSquaresArray);
-  if (shortCastleSquare != "blank") legalSquares.push(shortCastleSquare);
-  if (longCastleSquare != "blank") legalSquares.push(longCastleSquare);
-
-  return legalSquares;
-}
-function isShortCastlePossible(pieceColor, boardSquaresArray) {
-  let rank = pieceColor === "white" ? "1" : "8";
-  let fSquare = boardSquaresArray.find(
-    (element) => element.squareId === `f${rank}`
-  );
-  let gSquare = boardSquaresArray.find(
-    (element) => element.squareId === `g${rank}`
-  );
-  if (
-    fSquare.pieceColor !== "blank" ||
-    gSquare.pieceColor !== "blank" ||
-    kingHasMoved(pieceColor) ||
-    rookHasMoved(pieceColor, `h${rank}`)
-  ) {
-    return "blank";
-  }
-
-  return `g${rank}`;
-}
-function isLongCastlePossible(pieceColor, boardSquaresArray) {
-  let rank = pieceColor === "white" ? "1" : "8";
-  let dSquare = boardSquaresArray.find(
-    (element) => element.squareId === `d${rank}`
-  );
-  let cSquare = boardSquaresArray.find(
-    (element) => element.squareId === `c${rank}`
-  );
-  let bSquare = boardSquaresArray.find(
-    (element) => element.squareId === `b${rank}`
-  );
-  if (
-    dSquare.pieceColor !== "blank" ||
-    cSquare.pieceColor !== "blank" ||
-    bSquare.pieceColor !== "blank" ||
-    kingHasMoved(pieceColor) ||
-    rookHasMoved(pieceColor, `a${rank}`)
-  ) {
-    return "blank";
-  }
-
-  return `c${rank}`;
-}
-function kingHasMoved(pieceColor) {
-  let result = moves.find(
-    (element) =>
-      element.pieceColor === pieceColor && element.pieceType === "king"
-  );
-  if (result != undefined) return true;
-  return false;
-}
-function rookHasMoved(pieceColor, startingSquareId) {
-  let result = moves.find(
-    (element) =>
-      element.pieceColor === pieceColor &&
-      element.pieceType === "rook" &&
-      element.from === startingSquareId
-  );
-  if (result != undefined) return true;
-  return false;
-}
-
-function moveToEighthRank(startingSquareId, pieceColor, boardSquaresArray) {
-  const file = startingSquareId.charAt(0);
-  const rank = startingSquareId.charAt(1);
-  const rankNumber = parseInt(rank);
-  let currentRank = rankNumber;
-  let legalSquares = [];
-  while (currentRank != 8) {
-    currentRank++;
-    let currentSquareId = file + currentRank;
-    let currentSquare = boardSquaresArray.find(
-      (element) => element.squareId === currentSquareId
-    );
-    let squareContent = currentSquare.pieceColor;
-    if (squareContent != "blank" && squareContent == pieceColor)
-      return legalSquares;
-    legalSquares.push(currentSquareId);
-    if (squareContent != "blank" && squareContent != pieceColor)
-      return legalSquares;
-  }
-  return legalSquares;
-}
-function moveToFirstRank(startingSquareId, pieceColor, boardSquaresArray) {
-  const file = startingSquareId.charAt(0);
-  const rank = startingSquareId.charAt(1);
-  const rankNumber = parseInt(rank);
-  let currentRank = rankNumber;
-  let legalSquares = [];
-  while (currentRank != 1) {
-    currentRank--;
-    let currentSquareId = file + currentRank;
-    let currentSquare = boardSquaresArray.find(
-      (element) => element.squareId === currentSquareId
-    );
-    let squareContent = currentSquare.pieceColor;
-    if (squareContent != "blank" && squareContent == pieceColor)
-      return legalSquares;
-    legalSquares.push(currentSquareId);
-    if (squareContent != "blank" && squareContent != pieceColor)
-      return legalSquares;
-  }
-  return legalSquares;
-}
-function moveToAFile(startingSquareId, pieceColor, boardSquaresArray) {
-  const file = startingSquareId.charAt(0);
-  const rank = startingSquareId.charAt(1);
-  let currentFile = file;
-  let legalSquares = [];
-
-  while (currentFile != "a") {
-    currentFile = String.fromCharCode(
-      currentFile.charCodeAt(currentFile.length - 1) - 1
-    );
-    let currentSquareId = currentFile + rank;
-    let currentSquare = boardSquaresArray.find(
-      (element) => element.squareId === currentSquareId
-    );
-    let squareContent = currentSquare.pieceColor;
-    if (squareContent != "blank" && squareContent == pieceColor)
-      return legalSquares;
-    legalSquares.push(currentSquareId);
-    if (squareContent != "blank" && squareContent != pieceColor)
-      return legalSquares;
-  }
-  return legalSquares;
-}
-function moveToHFile(startingSquareId, pieceColor, boardSquaresArray) {
-  const file = startingSquareId.charAt(0);
-  const rank = startingSquareId.charAt(1);
-  let currentFile = file;
-  let legalSquares = [];
-  while (currentFile != "h") {
-    currentFile = String.fromCharCode(
-      currentFile.charCodeAt(currentFile.length - 1) + 1
-    );
-    let currentSquareId = currentFile + rank;
-    let currentSquare = boardSquaresArray.find(
-      (element) => element.squareId === currentSquareId
-    );
-    let squareContent = currentSquare.pieceColor;
-    if (squareContent != "blank" && squareContent == pieceColor)
-      return legalSquares;
-    legalSquares.push(currentSquareId);
-    if (squareContent != "blank" && squareContent != pieceColor)
-      return legalSquares;
-  }
-  return legalSquares;
-}
-function moveToEighthRankAFile(
-  startingSquareId,
-  pieceColor,
-  boardSquaresArray
-) {
-  const file = startingSquareId.charAt(0);
-  const rank = startingSquareId.charAt(1);
-  const rankNumber = parseInt(rank);
-  let currentFile = file;
-  let currentRank = rankNumber;
-  let legalSquares = [];
-  while (!(currentFile == "a" || currentRank == 8)) {
-    currentFile = String.fromCharCode(
-      currentFile.charCodeAt(currentFile.length - 1) - 1
-    );
-    currentRank++;
-    let currentSquareId = currentFile + currentRank;
-    let currentSquare = boardSquaresArray.find(
-      (element) => element.squareId === currentSquareId
-    );
-    let squareContent = currentSquare.pieceColor;
-    if (squareContent != "blank" && squareContent == pieceColor)
-      return legalSquares;
-    legalSquares.push(currentSquareId);
-    if (squareContent != "blank" && squareContent != pieceColor)
-      return legalSquares;
-  }
-  return legalSquares;
-}
-function moveToEighthRankHFile(
-  startingSquareId,
-  pieceColor,
-  boardSquaresArray
-) {
-  const file = startingSquareId.charAt(0);
-  const rank = startingSquareId.charAt(1);
-  const rankNumber = parseInt(rank);
-  let currentFile = file;
-  let currentRank = rankNumber;
-  let legalSquares = [];
-  while (!(currentFile == "h" || currentRank == 8)) {
-    currentFile = String.fromCharCode(
-      currentFile.charCodeAt(currentFile.length - 1) + 1
-    );
-    currentRank++;
-    let currentSquareId = currentFile + currentRank;
-    let currentSquare = boardSquaresArray.find(
-      (element) => element.squareId === currentSquareId
-    );
-    let squareContent = currentSquare.pieceColor;
-    if (squareContent != "blank" && squareContent == pieceColor)
-      return legalSquares;
-    legalSquares.push(currentSquareId);
-    if (squareContent != "blank" && squareContent != pieceColor)
-      return legalSquares;
-  }
-  return legalSquares;
-}
-function moveToFirstRankAFile(startingSquareId, pieceColor, boardSquaresArray) {
-  const file = startingSquareId.charAt(0);
-  const rank = startingSquareId.charAt(1);
-  const rankNumber = parseInt(rank);
-  let currentFile = file;
-  let currentRank = rankNumber;
-  let legalSquares = [];
-  while (!(currentFile == "a" || currentRank == 1)) {
-    currentFile = String.fromCharCode(
-      currentFile.charCodeAt(currentFile.length - 1) - 1
-    );
-    currentRank--;
-    let currentSquareId = currentFile + currentRank;
-    let currentSquare = boardSquaresArray.find(
-      (element) => element.squareId === currentSquareId
-    );
-    let squareContent = currentSquare.pieceColor;
-    if (squareContent != "blank" && squareContent == pieceColor)
-      return legalSquares;
-    legalSquares.push(currentSquareId);
-    if (squareContent != "blank" && squareContent != pieceColor)
-      return legalSquares;
-  }
-  return legalSquares;
-}
-function moveToFirstRankHFile(startingSquareId, pieceColor, boardSquaresArray) {
-  const file = startingSquareId.charAt(0);
-  const rank = startingSquareId.charAt(1);
-  const rankNumber = parseInt(rank);
-  let currentFile = file;
-  let currentRank = rankNumber;
-  let legalSquares = [];
-  while (!(currentFile == "h" || currentRank == 1)) {
-    currentFile = String.fromCharCode(
-      currentFile.charCodeAt(currentFile.length - 1) + 1
-    );
-    currentRank--;
-    let currentSquareId = currentFile + currentRank;
-    let currentSquare = boardSquaresArray.find(
-      (element) => element.squareId === currentSquareId
-    );
-    let squareContent = currentSquare.pieceColor;
-    if (squareContent != "blank" && squareContent == pieceColor)
-      return legalSquares;
-    legalSquares.push(currentSquareId);
-    if (squareContent != "blank" && squareContent != pieceColor)
-      return legalSquares;
-  }
-  return legalSquares;
-}
-function getPieceAtSquare(squareId, boardSquaresArray) {
-  let currentSquare = boardSquaresArray.find(
-    (element) => element.squareId === squareId
-  );
-  const color = currentSquare.pieceColor;
-  const pieceType = currentSquare.pieceType;
-  const pieceId = currentSquare.pieceId;
-  return { pieceColor: color, pieceType: pieceType, pieceId: pieceId };
-}
-
-function isKingInCheck(squareId, pieceColor, boardSquaresArray) {
-  let legalSquares = getRookMoves(squareId, pieceColor, boardSquaresArray);
-  for (let squareId of legalSquares) {
-    let pieceProperties = getPieceAtSquare(squareId, boardSquaresArray);
-    if (
-      (pieceProperties.pieceType == "rook" ||
-        pieceProperties.pieceType == "queen") &&
-      pieceColor != pieceProperties.pieceColor
-    )
-      return true;
-  }
-  legalSquares = getBishopMoves(squareId, pieceColor, boardSquaresArray);
-  for (let squareId of legalSquares) {
-    let pieceProperties = getPieceAtSquare(squareId, boardSquaresArray);
-    if (
-      (pieceProperties.pieceType == "bishop" ||
-        pieceProperties.pieceType == "queen") &&
-      pieceColor != pieceProperties.pieceColor
-    )
-      return true;
-  }
-  legalSquares = getKnightMoves(squareId, pieceColor, boardSquaresArray);
-  for (let squareId of legalSquares) {
-    let pieceProperties = getPieceAtSquare(squareId, boardSquaresArray);
-    if (
-      pieceProperties.pieceType == "knight" &&
-      pieceColor != pieceProperties.pieceColor
-    )
-      return true;
-  }
-  legalSquares = checkPawnDiagonalCaptures(
-    squareId,
-    pieceColor,
-    boardSquaresArray
-  );
-  for (let squareId of legalSquares) {
-    let pieceProperties = getPieceAtSquare(squareId, boardSquaresArray);
-    if (
-      pieceProperties.pieceType == "pawn" &&
-      pieceColor != pieceProperties.color
-    )
-      return true;
-  }
-  legalSquares = getKingMoves(squareId, pieceColor, boardSquaresArray);
-  for (let squareId of legalSquares) {
-    let pieceProperties = getPieceAtSquare(squareId, boardSquaresArray);
-    if (
-      pieceProperties.pieceType == "king" &&
-      pieceColor != pieceProperties.color
-    )
-      return true;
-  }
-  return false;
-}
-function getkingLastMove(color) {
-  let kingLastMove = moves.findLast(
-    (element) => element.pieceType === "king" && element.pieceColor === color
-  );
-  if (kingLastMove == undefined) return isWhiteTurn ? "e1" : "e8";
-  return kingLastMove.to;
-}
-function isMoveValidAgainstCheck(
-  legalSquares,
-  startingSquareId,
-  pieceColor,
-  pieceType
-) {
-  let kingSquare = isWhiteTurn
-    ? getkingLastMove("white")
-    : getkingLastMove("black");
-  let boardSquaresArrayCopy = deepCopyArray(boardSquaresArray);
-  let legalSquaresCopy = legalSquares.slice();
-  legalSquaresCopy.forEach((element) => {
-    let destinationId = element;
-    boardSquaresArrayCopy = deepCopyArray(boardSquaresArray);
-    updateBoardSquaresArray(
-      startingSquareId,
-      destinationId,
-      boardSquaresArrayCopy
-    );
-    if (
-      pieceType != "king" &&
-      isKingInCheck(kingSquare, pieceColor, boardSquaresArrayCopy)
-    ) {
-      legalSquares = legalSquares.filter((item) => item != destinationId);
-    }
-    if (
-      pieceType == "king" &&
-      isKingInCheck(destinationId, pieceColor, boardSquaresArrayCopy)
-    ) {
-      legalSquares = legalSquares.filter((item) => item != destinationId);
-    }
-  });
-  return legalSquares;
-}
-function checkForEndGame(){
-  checkForCheckMateAndStaleMate();
-  currentPosition = generateFEN(boardSquaresArray);
-  sendFen(currentPosition);
-  sendPgn(pgn);
-  positionArray.push(currentPosition);
-  viewedIndex  = positionArray.length -1;
-  let threeFoldRepetition = isThreefoldRepetition();
-  let insufficientMaterial = hasInsufficientMaterial(currentPosition);
-  let fiftyMovesRuleCount = currentPosition.split(" ")[4];
-  let fiftyMovesRule = fiftyMovesRuleCount!=100 ? false : true;
-  let isDraw = threeFoldRepetition||insufficientMaterial || fiftyMovesRule;
-  if(isDraw){
-    allowMovement=false;
-    showAlert("Draw");
-    sendResign("");
-    document.addEventListener('dragstart', function(event) {
-        event.preventDefault();
-    });
-     document.addEventListener('drop', function(event) {
-        event.preventDefault();
-    });
-    
-  }
-}
-
-function checkForCheckMateAndStaleMate() {
-  let kingSquare = isWhiteTurn
-    ? getkingLastMove("white")
-    : getkingLastMove("black");
-  let pieceColor = isWhiteTurn ? "white" : "black";
-  let boardSquaresArrayCopy = deepCopyArray(boardSquaresArray);
-  let kingIsCheck = isKingInCheck(
-    kingSquare,
-    pieceColor,
-    boardSquaresArrayCopy
-  );
-  let possibleMoves = getAllPossibleMoves(boardSquaresArrayCopy, pieceColor);
-  if (possibleMoves.length > 0) return;
-  let message = "";
-  let blackPlayer = isOpponentWhite?  player1.innerText : player2.innerText;
-  let whitePlayer = isOpponentWhite?  player2.innerText : player1.innerText;
-
-  if(kingIsCheck) 
-  isWhiteTurn ? (message = `${blackPlayer} Wins!`) : (message =  `${whitePlayer} Wins!`);
-  else
-  message="Draw";
-  message === "Draw" ? sendResign("") : sendResign(message.slice(0,-5).trim());
-
-  showAlert(message);
-}
-
-function getFiftyMovesRuleCount(){
-  let count=0;
-  for (let i=0;i<moves.length;i++){
-    count++;
-    if(moves[i].captured || moves[i].pieceType ==="pawn" || moves[i].promotedTo!="blank")
-    count=0;
-  }
-  return count;
-}
-function isThreefoldRepetition(){
-  return positionArray.some((string)=>{
-    const fen = string.split(" ").slice(0,4).join(" ");
-    return positionArray.filter(
-      (element)=>element.split(" ").slice(0,4).join(" ")===fen
-    ).length>=3
-  });
-}
-function hasInsufficientMaterial(fen){
-  const piecePlacement = fen.split(" ")[0];
-
-  const whiteBishops = piecePlacement.split("").filter(char=>char==="B").length;
-  const blackBishops = piecePlacement.split("").filter(char=>char==="b").length;
-  const whiteKnights = piecePlacement.split("").filter(char=>char==="N").length;
-  const blackKnights = piecePlacement.split("").filter(char=>char==="n").length;
-  const whiteQueens = piecePlacement.split("").filter(char=>char==="Q").length;
-  const blackQueens = piecePlacement.split("").filter(char=>char==="q").length;
-  const whiteRooks = piecePlacement.split("").filter(char=>char==="R").length;
-  const blackRooks = piecePlacement.split("").filter(char=>char==="r").length;
-  const whitePawns = piecePlacement.split("").filter(char=>char==="P").length;
-  const blackPawns = piecePlacement.split("").filter(char=>char==="p").length;
- 
-  if(whiteQueens+blackQueens+whiteRooks+blackRooks+whitePawns+blackPawns>0){
-    return false;
-  }
-
-  if(whiteKnights+blackKnights>1){
-    return false;
-  }
-  if(whiteKnights+blackKnights>1) {
-    return false;
-  }
-
-  if((whiteBishops>0|| blackBishops>0)&&(whiteKnights+blackKnights>0))
-    return false;
-
-    if(whiteBishops>1 || blackBishops>1)
-      return false;
-
-    if(whiteBishops===1 && blackBishops===1){
-      let whiteBishopSquareColor,blackBishopSquareColor;
-
-      let whiteBishopSquare = boardSquaresArray.find(element=>(element.pieceType==="bishop" && element.pieceColor==="white"));
-      let blackBishopSquare = boardSquaresArray.find(element=>(element.pieceType==="bishop" && element.pieceColor==="black"));
-
-      whiteBishopSquareColor = getSqaureColor(whiteBishopSquare.squareId);
-      blackBishopSquareColor = getSqaureColor(blackBishopSquare.squareId);
-
-      if(whiteBishopSquareColor!== blackBishopSquareColor){
-        return false;
-      }
-    }
-    return true;
-}
-function getSqaureColor(squareId){
-  let squareElement = document.getElementById(squareId);
-  let squareColor = squareElement.classList.contains("white") ? "white" : "black";
-  return squareColor;
-}
-
-function getAllPossibleMoves(squaresArray, color) {
-  return squaresArray
-    .filter((square) => square.pieceColor === color)
-    .flatMap((square) => {
-      const { pieceColor, pieceType, pieceId } = getPieceAtSquare(
-        square.squareId,
-        squaresArray
-      );
-      if (pieceId === "blank") return [];
-      let squaresArrayCopy = deepCopyArray(squaresArray);
-      const pieceObject = {
-        pieceColor: pieceColor,
-        pieceType: pieceType,
-        pieceId: pieceId,
-      };
-      let legalSquares = getPossibleMoves(
-        square.squareId,
-        pieceObject,
-        squaresArrayCopy
-      );
-      legalSquares = isMoveValidAgainstCheck(
-        legalSquares,
-        square.squareId,
-        pieceColor,
-        pieceType
-      );
-      return legalSquares;
-    });
-}
-
- resignButton.addEventListener("click",()=>{
-  allowMovement = false;
-  showAlert(player2.innerText+" Wins!");
-  sendResign(player2.innerText);
- });
-
- function clearBoard() {
-  const squares = document.querySelectorAll('.square');
-  squares.forEach(square => {
-    square.innerHTML = ''; // Clear all pieces from the squares
-  });
-}
-
-function loadPositionFromFEN(fen) {
-  const pieceMap = {
-    'p': 'pawn',
-    'r': 'rook',
-    'n': 'knight',
-    'b': 'bishop',
-    'q': 'queen',
-    'k': 'king',
-    'P': 'pawn',
-    'R': 'rook',
-    'N': 'knight',
-    'B': 'bishop',
-    'Q': 'queen',
-    'K': 'king'
-  };
-
-  const rows = fen.split(' ')[0].split('/');
-  const board = document.getElementById('board'); // Assuming your board has an id of 'board'
-  
-  clearBoard();
-
-  rows.forEach((row, rowIndex) => {
-    let columnIndex = 0;
-    for (const char of row) {
-      if (isNaN(char)) { // It's a piece
-        const pieceType = pieceMap[char];
-        const color = char === char.toUpperCase() ? 'white' : 'black';
-        const squareId = String.fromCharCode(97 + columnIndex) + (8 - rowIndex);
-        
-        const piece = createChessPiece(pieceType, color, "piece") ;
-       
-        const square = document.getElementById(squareId);
-        square.appendChild(piece);
-
-        columnIndex++;
-      } else {
-        columnIndex += parseInt(char); // It's a number of empty squares
-      }
-    }
-  });
-  setupPieces();
-  boardSquaresArray = [];
-  fillBoardSquaresArray();
-}
-
-function convertToStandardNotation(move){
-  let standardMove = "";
-  let boardSquaresArrayCopy = deepCopyArray(boardSquaresArray);
-  
-  {
-    let from = move.substring(0,2);
-    let to =  move.substring(2,4);
-    let promotion = move.length>4? move.charAt(4) : null;
-    let fromSquare = boardSquaresArrayCopy.find(square=>square.squareId===from);
-    let toSquare = getPieceAtSquare(to,boardSquaresArrayCopy);
-    if(fromSquare&&toSquare) {
-      let fromPiece = fromSquare.pieceType;
-      switch(fromPiece.toLowerCase()) {
-        case "pawn":
-          fromPiece="";
-          break;
-          case "knight":
-            fromPiece="N";
-            break;
-          case "bishop":
-            fromPiece="B";
-            break;
-          case "rook":
-            fromPiece="R";
-            break;   
-          case "queen":
-            fromPiece="Q";
-            break;  
-          case "king":
-            fromPiece="K";
-            break;
-      }
-      let captureSymbol="";
-      if((toSquare.pieceType !=="blank") || (toSquare.pieceType=="blank" && fromSquare.pieceType.toLowerCase()==="pawn" && from.charAt(0)!=to.charAt(0))){
-        captureSymbol="x";
-        if(fromSquare.pieceType.toLowerCase()==="pawn") {
-          fromPiece = from.charAt(0);
-        }
-      }
-      standardMove = `${fromPiece}${captureSymbol}${to}`;
-      if(promotion){
-        switch(promotion.toLowerCase()){
-          case "q":
-          standardMove+="=Q";
-          break;
-          case "r":
-            standardMove+="=R";
-            break;
-          case "b":
-            standardMove+="=B";
-            break;
-          case "n":
-            standardMove+="=N";
-            break;  
-        }
-      }
-      let kingColor = fromSquare.pieceColor == "white" ? "black":"white";
-      let kingSquareId = getKingSquare(kingColor,boardSquaresArrayCopy);
-      updateBoardSquaresArray(from,to,boardSquaresArrayCopy);
-
-      if(isKingInCheck(kingSquareId,kingColor,boardSquaresArrayCopy)) {
-        standardMove +="+";
-      }
-      if((standardMove =="Kg8" && fromSquare.squareId=="e8")||(standardMove == "Kg1" && fromSquare.squareId=="e1")) {
-        if(standardMove ==="Kg8")
-         updateBoardSquaresArray("h8","f8",boardSquaresArrayCopy);
-        else
-         updateBoardSquaresArray("h1","f1",boardSquaresArrayCopy);
-         standardMove = "O-O";
-
-      }
-      if((standardMove =="Kc8" && fromSquare.squareId=="e8")||(standardMove == "Kc1" && fromSquare.squareId=="e1")) {
-        if(standardMove ==="Kc8")
-         updateBoardSquaresArray("a8","d8",boardSquaresArrayCopy);
-        else
-         updateBoardSquaresArray("a1","d1",boardSquaresArrayCopy);
-        standardMove = "O-O-O";
-      }
-    
-    }
-  }
-  return standardMove.trim();
-}
-
-function getKingSquare(color,squareArray) {
-  let kingSquare = squareArray.find(square=>square.pieceType.toLowerCase()==="king" && square.pieceColor === color);
-  return kingSquare ? kingSquare.squareId : null;
-}
-
-function updatePGN(startingSquareId,destinationSquareId,whiteTurn,promotedTo="") {
-  let move = startingSquareId+destinationSquareId+promotedTo;
-  let standardMove = convertToStandardNotation(move);
-  let moveNumber = moves.length/2+1;
-  if(whiteTurn) {
-    let newMove = createMoveElement(standardMove,"playerMove");
-    pgnContainer.appendChild(newMove);
-    pgn+=" "+standardMove;
-  } else {
-    let number = createMoveElement(moveNumber,"moveNumber");
-    let newMove = createMoveElement(standardMove,"playerMove");
-    pgnContainer.appendChild(number);
-    pgnContainer.appendChild(newMove);
-    pgn+=" "+moveNumber+". "+standardMove;
-  }
-  pgnContainer.scrollTop = pgnContainer.scrollHeight;
-}
-
-function createMoveElement(standardMove,elementClass) {
-  let playerMove = document.createElement("div");
-  let moveNumber = moves.length;
-  playerMove.classList.add(elementClass);
-  if(elementClass == "playerMove") {
-    playerMove.id = moveNumber;
-    playerMove.addEventListener("click",()=>{
-      viewedIndex = parseInt(playerMove.id)+1;
-      highlightMove(viewedIndex);
-      updatePosition();
-      (viewedIndex != positionArray.length-1) ? 
-       allowMovement = false : allowMovement = true;
-    });
-  }
-
-  playerMove.innerHTML = standardMove;
-  return playerMove;
-}
-
-
-function recreateHTMLFromPGN(pgn) {
-  if(pgn === "") return;
-  pgnContainer.innerHTML = "";
-  let moveArray = pgn.trim().split(/\s+/);
-  let moveNumber = 1;
-  let moveId =-1;
-  for(let i=0;i<moveArray.length;i++) {
-    if(moveArray[i].includes(".")) {
-      let number = createMoveElement(moveNumber,"moveNumber");
-      pgnContainer.appendChild(number);
-      moveNumber++;
+    const pieceColor = piece.getAttribute("color");
+    if ((isWhiteTurn && pieceColor === "white") || (!isWhiteTurn && pieceColor === "black")) {
+        selectedPiece = piece;
+        ev.dataTransfer.setData("text", piece.id);
+        const startingSquareId = piece.parentNode.id;
+        legalSquares = getLegalMovesForPiece(startingSquareId, piece);
+        console.log("Legal moves for " + piece.classList[1] + " on " + startingSquareId + ":", legalSquares);
     } else {
-      let newMove = createMoveElement(moveArray[i],"playerMove");
-      moveId++;
-      newMove.id = moveId;
-      pgnContainer.appendChild(newMove);
+        ev.preventDefault();
     }
-  }
-  pgnContainer.scrollTop = pgnContainer.scrollHeight;
 }
 
-stepBackward.addEventListener("click",()=>{
-  moveBackward();
-});
-stepForward.addEventListener("click",()=>{
-  moveForward();
-});
-fastBackward.addEventListener("click",()=>{
-  moveToStart();
-});
-fastForward.addEventListener("click",()=>{
-  moveToEnd();
-});
+/**
+ * Handles the drop of a piece onto a square.
+ * @param {Event} ev The drop event.
+ */
+function drop(ev) {
+    ev.preventDefault();
+    let data = ev.dataTransfer.getData("text");
+    const pieceElement = document.getElementById(data);
+    const destinationSquare = ev.currentTarget;
+    let destinationSquareId = destinationSquare.id;
 
-function moveBackward() {
-  if(viewedIndex>0) {
-    viewedIndex--;
-    viewedIndex>0 ?  highlightMove(viewedIndex) : {};
-    allowMovement = false;
-  }
-  updatePosition();
+    const originalSquareId = pieceElement.parentNode.id;
+    const [fromRow, fromCol] = squareIdToCoords(originalSquareId);
+    const [toRow, toCol] = squareIdToCoords(destinationSquareId);
+
+    const prevEnPassantTargetSquare = enPassantTargetSquare;
+    enPassantTargetSquare = null;
+
+    if (legalSquares.includes(destinationSquareId)) {
+        const pieceType = board[fromRow][fromCol].type;
+        const pieceColor = board[fromRow][fromCol].color;
+
+        if (pieceType === 'king' && Math.abs(fromCol - toCol) === 2) {
+            let rookFromCol, rookToCol;
+            if (toCol === 6) {
+                rookFromCol = 7;
+                rookToCol = 5;
+            } else if (toCol === 2) {
+                rookFromCol = 0;
+                rookToCol = 3;
+            }
+
+            board[toRow][toCol] = board[fromRow][fromCol];
+            board[fromRow][fromCol] = null;
+
+            board[toRow][rookToCol] = board[toRow][rookFromCol];
+            board[toRow][rookFromCol] = null;
+
+            if (pieceColor === 'white') {
+                hasWhiteKingMoved = true;
+                if (rookFromCol === 7) hasWhiteKingsideRookMoved = true;
+                else if (rookFromCol === 0) hasWhiteQueensideRookMoved = true;
+            } else {
+                hasBlackKingMoved = true;
+                if (rookFromCol === 7) hasBlackKingsideRookMoved = true;
+                else if (rookFromCol === 0) hasBlackQueensideRookMoved = true;
+            }
+        } else if (pieceType === 'pawn' && destinationSquareId === prevEnPassantTargetSquare) {
+            const capturedPawnRow = fromRow;
+            const capturedPawnCol = toCol;
+            board[capturedPawnRow][capturedPawnCol] = null;
+
+            board[toRow][toCol] = board[fromRow][fromCol];
+            board[fromRow][fromCol] = null;
+        } else {
+            board[toRow][toCol] = board[fromRow][fromCol];
+            board[fromRow][fromCol] = null;
+
+            if (pieceType === 'king') {
+                if (pieceColor === 'white') hasWhiteKingMoved = true;
+                else hasBlackKingMoved = true;
+            } else if (pieceType === 'rook') {
+                if (pieceColor === 'white') {
+                    if (fromCol === 7 && fromRow === 7) hasWhiteKingsideRookMoved = true;
+                    else if (fromCol === 0 && fromRow === 7) hasWhiteQueensideRookMoved = true;
+                } else {
+                    if (fromCol === 7 && fromRow === 0) hasBlackKingsideRookMoved = true;
+                    else if (fromCol === 0 && fromRow === 0) hasBlackQueensideRookMoved = true;
+                }
+            }
+        }
+
+        if (pieceType === 'pawn' && Math.abs(fromRow - toRow) === 2) {
+            enPassantTargetSquare = coordsToSquareId(fromRow + (toRow - fromRow) / 2, toCol);
+        }
+
+        if (pieceType === 'pawn' && (toRow === 0 || toRow === 7)) {
+            pawnPromotionTargetSquareId = destinationSquareId;
+            renderBoard();
+            showPromotionUI(pieceColor);
+            return;
+        }
+
+        renderBoard();
+        finalizeMove();
+    } else {
+        console.log("Illegal move!");
+        legalSquares.length = 0;
+    }
 }
 
-function moveForward() {
-  if(viewedIndex < positionArray.length-1) {
-    viewedIndex++;
-    highlightMove(viewedIndex);
-    updatePosition();
-  }
-  if(viewedIndex === positionArray.length-1)
-    allowMovement = true;
+/**
+ * Checks if a square is occupied and by what color on the internal board.
+ * @param {number} rowIndex The row index (0-7).
+ * @param {number} colIndex The column index (0-7).
+ * @param {Array<Array<Object|null>>} boardState The board state to check (defaults to global `board`).
+ * @returns {string} "white", "black", "blank", or "out-of-bounds".
+ */
+function isSquareOccupied(rowIndex, colIndex, boardState = board) {
+    if (rowIndex < 0 || rowIndex > 7 || colIndex < 0 || colIndex > 7) {
+        return "out-of-bounds";
+    }
+    const piece = boardState[rowIndex][colIndex];
+    return piece ? piece.color : "blank";
 }
 
-function moveToStart() {
-  if(viewedIndex >=0) {
-    viewedIndex =0;
-    highlightMove(1);
-    updatePosition();
-  }
-  allowMovement = false;
+/**
+ * Simulates a move on a temporary board state.
+ * @param {number} fromRow Starting row index.
+ * @param {number} fromCol Starting column index.
+ * @param {number} toRow Destination row index.
+ * @param {number} toCol Destination column index.
+ * @param {Array<Array<Object|null>>} currentBoard The current board state to simulate from.
+ * @param {boolean} isEnPassantCapture Optional: true if this is an en passant capture simulation.
+ * @returns {Array<Array<Object|null>>} A new board state after the simulated move.
+ */
+function simulateMove(fromRow, fromCol, toRow, toCol, currentBoard, isEnPassantCapture = false) {
+    const simulatedBoard = currentBoard.map(row => row.slice());
+
+    const piece = simulatedBoard[fromRow][fromCol];
+    simulatedBoard[toRow][toCol] = piece;
+    simulatedBoard[fromRow][fromCol] = null;
+
+    if (isEnPassantCapture) {
+        const capturedPawnRow = fromRow;
+        const capturedPawnCol = toCol;
+        simulatedBoard[capturedPawnRow][capturedPawnCol] = null;
+    }
+
+    return simulatedBoard;
 }
 
-
-
-function moveToEnd() {
-  if(viewedIndex>=0) {
-    viewedIndex = positionArray.length-1;
-    updatePosition();
-  }
-  if(viewedIndex>0)
-    highlightMove(viewedIndex);
-  allowMovement = true;
+/**
+ * Finds the king's position for a given color on a board state.
+ * @param {string} kingColor The color of the king to find ("white" or "black").
+ * @param {Array<Array<Object|null>>} boardState The board state to search.
+ * @returns {Array<number>|null} [rowIndex, colIndex] of the king, or null if not found.
+ */
+function findKing(kingColor, boardState) {
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const piece = boardState[r][c];
+            if (piece && piece.type === 'king' && piece.color === kingColor) {
+                return [r, c];
+            }
+        }
+    }
+    return null;
 }
 
-function highlightMove(viewedIndex) {
-  let moveElement = document.getElementById(viewedIndex-1);
-  document.querySelectorAll(".highlighted").forEach(element=>{
-    element.classList.remove("highlighted");
-  });
-  moveElement.classList.add("highlighted");
+/**
+ * Checks if a king of a given color is in check on a specific board state.
+ * @param {string} kingColor The color of the king to check ("white" or "black").
+ * @param {Array<Array<Object|null>>} boardState The board state to evaluate.
+ * @returns {boolean} True if the king is in check, false otherwise.
+ */
+function isKingInCheck(kingColor, boardState) {
+    const kingCoords = findKing(kingColor, boardState);
+    if (!kingCoords) return false;
+
+    const [kingRow, kingCol] = kingCoords;
+    const opponentColor = kingColor === 'white' ? 'black' : 'white';
+
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const piece = boardState[r][c];
+            if (piece && piece.color === opponentColor) {
+                const pseudoLegalMoves = getPseudoLegalMoves(r, c, piece.type, piece.color, boardState, true);
+                if (pseudoLegalMoves.some(move => move[0] === kingRow && move[1] === kingCol)) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
-function updatePosition() {
-  viewedFEN = positionArray[viewedIndex];
-  loadPositionFromFEN(viewedFEN);
+
+/**
+ * Calculates all pseudo-legal moves for a piece (moves according to piece rules,
+ * without considering if it puts own king in check).
+ * @param {number} startRow Starting row index.
+ * @param {number} startCol Starting column index.
+ * @param {string} pieceType Type of the piece (e.g., "pawn", "rook").
+ * @param {string} pieceColor Color of the piece ("white" or "black").
+ * @param {Array<Array<Object|null>>} boardState The board state to calculate moves on.
+ * @param {boolean} [forCheckValidation=false] If true, allows king to move into check for opponent's attack calculation.
+ * @returns {Array<Array<number>>} A list of pseudo-legal moves as [rowIndex, colIndex] coordinates.
+ */
+function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardState, forCheckValidation = false) {
+    let moves = [];
+
+    const addMove = (r, c) => {
+        if (r >= 0 && r <= 7 && c >= 0 && c <= 7) {
+            moves.push([r, c]);
+        }
+    };
+
+    const checkAndAddSlidingMove = (r, c) => {
+        if (r < 0 || r > 7 || c < 0 || c > 7) return 'stop';
+
+        const targetContent = isSquareOccupied(r, c, boardState);
+        if (targetContent === 'blank') {
+            addMove(r, c);
+            return 'continue';
+        } else if (targetContent !== pieceColor) {
+            addMove(r, c);
+            return 'stop';
+        } else {
+            return 'stop';
+        }
+    };
+
+    switch (pieceType) {
+        case 'pawn':
+            const direction = (pieceColor === "white") ? -1 : 1;
+            const startRankRow = (pieceColor === "white") ? 6 : 1;
+            const enPassantRank = (pieceColor === "white") ? 3 : 4;
+
+            let nextRow = startRow + direction;
+            if (isSquareOccupied(nextRow, startCol, boardState) === "blank") {
+                addMove(nextRow, startCol);
+                if (startRow === startRankRow) {
+                    let twoStepsRow = startRow + (2 * direction);
+                    if (isSquareOccupied(twoStepsRow, startCol, boardState) === "blank") {
+                        addMove(twoStepsRow, startCol);
+                    }
+                }
+            }
+
+            const captureCols = [startCol - 1, startCol + 1];
+            for (const c of captureCols) {
+                const targetContent = isSquareOccupied(nextRow, c, boardState);
+                if (targetContent !== "blank" && targetContent !== pieceColor) {
+                    addMove(nextRow, c);
+                }
+            }
+
+            if (startRow === enPassantRank && enPassantTargetSquare !== null) {
+                for (const c of captureCols) {
+                    const targetSquareId = coordsToSquareId(nextRow, c);
+                    if (targetSquareId === enPassantTargetSquare) {
+                        const pawnBesideRow = startRow;
+                        const pawnBesideCol = c;
+                        const pieceBeside = boardState[pawnBesideRow][pawnBesideCol];
+                        if (pieceBeside && pieceBeside.type === 'pawn' && pieceBeside.color !== pieceColor) {
+                            addMove(nextRow, c);
+                        }
+                    }
+                }
+            }
+            break;
+
+        case 'knight':
+            const knightMoves = [
+                [-2, -1], [-2, 1], [-1, -2], [-1, 2],
+                [1, -2], [1, 2], [2, -1], [2, 1]
+            ];
+            knightMoves.forEach(([dr, dc]) => {
+                const newRow = startRow + dr;
+                const newCol = startCol + dc;
+                const targetContent = isSquareOccupied(newRow, newCol, boardState);
+                if (targetContent === "blank" || targetContent !== pieceColor) {
+                    addMove(newRow, newCol);
+                }
+            });
+            break;
+
+        case 'rook':
+            const rookDirections = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            rookDirections.forEach(([dr, dc]) => {
+                for (let i = 1; i < 8; i++) {
+                    const newRow = startRow + dr * i;
+                    const newCol = startCol + dc * i;
+                    const result = checkAndAddSlidingMove(newRow, newCol);
+                    if (result === 'stop') break;
+                }
+            });
+            break;
+
+        case 'bishop':
+            const bishopDirections = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+            bishopDirections.forEach(([dr, dc]) => {
+                for (let i = 1; i < 8; i++) {
+                    const newRow = startRow + dr * i;
+                    const newCol = startCol + dc * i;
+                    const result = checkAndAddSlidingMove(newRow, newCol);
+                    if (result === 'stop') break;
+                }
+            });
+            break;
+
+        case 'queen':
+            const queenDirections = [
+                [-1, 0], [1, 0], [0, -1], [0, 1],
+                [-1, -1], [-1, 1], [1, -1], [1, 1]
+            ];
+            queenDirections.forEach(([dr, dc]) => {
+                for (let i = 1; i < 8; i++) {
+                    const newRow = startRow + dr * i;
+                    const newCol = startCol + dc * i;
+                    const result = checkAndAddSlidingMove(newRow, newCol);
+                    if (result === 'stop') break;
+                }
+            });
+            break;
+
+        case 'king':
+            const kingMoves = [
+                [-1, -1], [-1, 0], [-1, 1],
+                [0, -1], [0, 1],
+                [1, -1], [1, 0], [1, 1]
+            ];
+            kingMoves.forEach(([dr, dc]) => {
+                const newRow = startRow + dr;
+                const newCol = startCol + dc;
+                const targetContent = isSquareOccupied(newRow, newCol, boardState);
+                if (targetContent === "blank" || targetContent !== pieceColor) {
+                    addMove(newRow, newCol);
+                }
+            });
+
+            const kingRow = (pieceColor === 'white') ? 7 : 0;
+            const kingMovedFlag = (pieceColor === 'white') ? hasWhiteKingMoved : hasBlackKingMoved;
+
+            if (!kingMovedFlag && startRow === kingRow && startCol === 4) {
+                const kingsideRookMovedFlag = (pieceColor === 'white') ? hasWhiteKingsideRookMoved : hasBlackKingsideRookMoved;
+                const kingsideRookCol = 7;
+                if (!kingsideRookMovedFlag && boardState[kingRow][5] === null && boardState[kingRow][6] === null &&
+                    boardState[kingRow][kingsideRookCol] && boardState[kingRow][kingsideRookCol].type === 'rook' && boardState[kingRow][kingsideRookCol].color === pieceColor) {
+                    const pathClearAndSafe =
+                        !isKingInCheck(pieceColor, boardState) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState)) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState));
+                    if (pathClearAndSafe) {
+                        addMove(kingRow, 6);
+                    }
+                }
+
+                const queensideRookMovedFlag = (pieceColor === 'white') ? hasWhiteQueensideRookMoved : hasBlackQueensideRookMoved;
+                const queensideRookCol = 0;
+                if (!queensideRookMovedFlag && boardState[kingRow][1] === null && boardState[kingRow][2] === null && boardState[kingRow][3] === null &&
+                    boardState[kingRow][queensideRookCol] && boardState[kingRow][queensideRookCol].type === 'rook' && boardState[kingRow][queensideRookCol].color === pieceColor) {
+                    const pathClearAndSafe =
+                        !isKingInCheck(pieceColor, boardState) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState)) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState));
+                    if (pathClearAndSafe) {
+                        addMove(kingRow, 2);
+                    }
+                }
+            }
+            break;
+    }
+    return moves;
 }
 
+/**
+ * Generates and filters legal moves for a piece, ensuring the king is not left in check.
+ * @param {string} startSquareId The ID of the square the piece is on.
+ * @param {HTMLElement} pieceElement The piece DOM element.
+ * @returns {Array<string>} A list of legal move square IDs.
+ */
+function getLegalMovesForPiece(startSquareId, pieceElement) {
+    const [startRow, startCol] = squareIdToCoords(startSquareId);
+    const pieceType = pieceElement.classList[1];
+    const pieceColor = pieceElement.getAttribute('color');
 
+    const pseudoLegalMoves = getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, board);
 
+    let filteredLegalMoves = [];
+    for (const [toRow, toCol] of pseudoLegalMoves) {
+        let simulatedBoard;
+        let isEnPassantCapture = false;
 
+        if (pieceType === 'pawn' && coordsToSquareId(toRow, toCol) === enPassantTargetSquare) {
+            const pawnBesideRow = startRow;
+            const pawnBesideCol = toCol;
+            const pieceBeside = board[pawnBesideRow][pawnBesideCol];
+            if (pieceBeside && pieceBeside.type === 'pawn' && pieceBeside.color !== pieceColor) {
+                isEnPassantCapture = true;
+            }
+        }
 
+        simulatedBoard = simulateMove(startRow, startCol, toRow, toCol, board, isEnPassantCapture);
 
+        if (!isKingInCheck(pieceColor, simulatedBoard)) {
+            filteredLegalMoves.push(coordsToSquareId(toRow, toCol));
+        }
+    }
+    return filteredLegalMoves;
+}
 
+/**
+ * Checks the current game status (check, checkmate, stalemate).
+ * Displays messages to the user.
+ */
+function checkGameStatus() {
+    const currentPlayerColor = isWhiteTurn ? 'white' : 'black';
+    const opponentPlayerColor = isWhiteTurn ? 'black' : 'white';
 
+    const kingInCheck = isKingInCheck(currentPlayerColor, board);
+    let hasLegalMoves = false;
 
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const piece = board[r][c];
+            if (piece && piece.color === currentPlayerColor) {
+                const pieceSquareId = coordsToSquareId(r, c);
+                const dummyPieceElement = {
+                    classList: [null, piece.type],
+                    getAttribute: (attr) => attr === 'color' ? piece.color : null
+                };
 
+                const legalMovesForThisPiece = getLegalMovesForPiece(pieceSquareId, dummyPieceElement);
+                if (legalMovesForThisPiece.length > 0) {
+                    hasLegalMoves = true;
+                    break;
+                }
+            }
+        }
+        if (hasLegalMoves) break;
+    }
 
+    if (kingInCheck && !hasLegalMoves) {
+        showMessage(`Checkmate! ${opponentPlayerColor.toUpperCase()} wins!`);
+    } else if (!kingInCheck && !hasLegalMoves) {
+        showMessage("Stalemate! It's a draw.");
+    } else if (kingInCheck) {
+        showMessage(`${currentPlayerColor.toUpperCase()} is in check!`);
+    } else {
+        clearMessage();
+    }
+}
 
+/**
+ * Displays a message box on the screen.
+ * @param {string} msg The message to display.
+ */
+function showMessage(msg) {
+    let messageBox = document.getElementById('message-box');
+    if (!messageBox) {
+        messageBox = document.createElement('div');
+        messageBox.id = 'message-box';
+        Object.assign(messageBox.style, {
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: '#333',
+            color: 'white',
+            padding: '10px 20px',
+            borderRadius: '8px',
+            zIndex: '1000',
+            fontSize: '1.2em',
+            textAlign: 'center',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+        });
+        document.body.appendChild(messageBox);
+    }
+    messageBox.textContent = msg;
+    messageBox.style.display = 'block';
+}
 
+/**
+ * Hides the message box.
+ */
+function clearMessage() {
+    const messageBox = document.getElementById('message-box');
+    if (messageBox) {
+        messageBox.style.display = 'none';
+    }
+}
 
+/**
+ * Shows the pawn promotion UI.
+ * @param {string} pawnColor The color of the pawn being promoted.
+ */
+function showPromotionUI(pawnColor) {
+    promotionChoices.innerHTML = '';
+    const promotionPieces = ['queen', 'rook', 'bishop', 'knight'];
 
+    promotionPieces.forEach(pieceType => {
+        const choiceDiv = document.createElement('div');
+        choiceDiv.classList.add('promotion-choice');
+        choiceDiv.dataset.pieceType = pieceType;
+        choiceDiv.addEventListener('click', () => selectPromotionPiece(pieceType, pawnColor));
 
+        const pieceImg = document.createElement('img');
+        pieceImg.src = `${pawnColor}-${pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}.png`;
+        pieceImg.alt = `${pawnColor} ${pieceType}`;
 
+        choiceDiv.appendChild(pieceImg);
+        promotionChoices.appendChild(choiceDiv);
+    });
 
+    promotionOverlay.classList.add('active');
+}
 
+/**
+ * Handles the selection of a promotion piece.
+ * @param {string} selectedType The type of piece chosen for promotion (e.g., 'queen').
+ * @param {string} pawnColor The color of the pawn being promoted.
+ */
+function selectPromotionPiece(selectedType, pawnColor) {
+    promotionOverlay.classList.remove('active');
 
+    const [row, col] = squareIdToCoords(pawnPromotionTargetSquareId);
 
+    board[row][col] = {
+        type: selectedType,
+        color: pawnColor
+    };
 
+    renderBoard();
 
+    pawnPromotionTargetSquareId = null;
+    finalizeMove();
+}
 
+/**
+ * Finalizes a move: toggles turn, clears legal squares, checks game status, and updates evaluation.
+ * This function is called after any successful move (normal or promotion).
+ */
+function finalizeMove() {
+    isWhiteTurn = !isWhiteTurn;
+    legalSquares.length = 0;
 
+    checkGameStatus();
 
+    const currentFEN = generateFEN(board);
+    console.log("Generated FEN:", currentFEN);
+    getEvaluation(currentFEN);
+}
 
+/**
+ * Generates a FEN (Forsyth-Edwards Notation) string from the current board state.
+ * @param {Array<Array<Object|null>>} boardState The current 8x8 board array.
+ * @returns {string} The FEN string representing the board state.
+ */
+function generateFEN(boardState) {
+    let fen = '';
+    for (let r = 0; r < 8; r++) {
+        let emptyCount = 0;
+        for (let c = 0; c < 8; c++) {
+            const piece = boardState[r][c];
+            if (piece === null) {
+                emptyCount++;
+            } else {
+                if (emptyCount > 0) {
+                    fen += emptyCount;
+                    emptyCount = 0;
+                }
+                let pieceChar = '';
+                switch (piece.type) {
+                    case 'pawn': pieceChar = 'p'; break;
+                    case 'knight': pieceChar = 'n'; break;
+                    case 'bishop': pieceChar = 'b'; break;
+                    case 'rook': pieceChar = 'r'; break;
+                    case 'queen': pieceChar = 'q'; break;
+                    case 'king': pieceChar = 'k'; break;
+                }
+                fen += (piece.color === 'white' ? pieceChar.toUpperCase() : pieceChar);
+            }
+        }
+        if (emptyCount > 0) {
+            fen += emptyCount;
+        }
+        if (r < 7) {
+            fen += '/';
+        }
+    }
 
+    fen += ' ' + (isWhiteTurn ? 'w' : 'b');
 
+    let castling = '';
+    if (!hasWhiteKingMoved) {
+        if (!hasWhiteKingsideRookMoved) castling += 'K';
+        if (!hasWhiteQueensideRookMoved) castling += 'Q';
+    }
+    if (!hasBlackKingMoved) {
+        if (!hasBlackKingsideRookMoved) castling += 'k';
+        if (!hasBlackQueensideRookMoved) castling += 'q';
+    }
+    fen += ' ' + (castling === '' ? '-' : castling);
 
+    fen += ' ' + (enPassantTargetSquare || '-');
 
+    fen += ' 0 1';
 
+    return fen;
+}
 
+/**
+ * Gets evaluation from Stockfish worker.
+ * @param {string} fen The FEN string of the current position.
+ */
+function getEvaluation(fen) {
+    // A helper function to send position and start commands
+    const startAnalysis = () => {
+        stockfishWorker.postMessage("position fen " + fen);
+        stockfishWorker.postMessage("go depth 15");
+    };
 
+    // If we have a worker and are awaiting a response, stop it before sending a new command.
+    if (stockfishWorker && isAwaitingEvaluation) {
+        stockfishWorker.postMessage("stop");
+    }
 
+    // Reset evaluation state and UI
+    isAwaitingEvaluation = true;
+    evaluations = [null, null, null];
+    lines = ["", "", ""];
+    scoreStrings = [null, null, null];
+    displayEvaluation(lines, evaluations, "Thinking...");
 
+    if (!stockfishWorker) {
+        console.log("Creating new worker with path:", "./lib/stockfish-nnue-16.js");
+        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
+        stockfishWorker.onmessage = function (event) {
+            let message = event.data;
+            // console.log("Stockfish Raw Message:", message);
 
+            if (message === "readyok") {
+                isEngineReady = true;
+                // Once the engine is ready, send the initial commands.
+                stockfishWorker.postMessage("setoption name multipv value 3");
+                startAnalysis();
+                return;
+            }
 
+            if (!isEngineReady) return;
 
+            if (message.startsWith("info depth") || message.startsWith("info multipv")) {
+                let multipvMatch = message.match(/multipv (\d+)/);
+                let multipv = (multipvMatch ? parseInt(multipvMatch[1]) : 1);
 
+                let scoreIndex = message.indexOf("score cp");
+                let pvIndex = message.indexOf("pv");
+                
+                let evaluation, scoreString;
 
+                if (scoreIndex !== -1) {
+                    scoreString = message.slice(scoreIndex).split(" ")[2] || "0";
+                    let cpEvaluation = parseInt(scoreString) / 100 || 0;
+                    evaluation = isWhiteTurn ? cpEvaluation : -cpEvaluation;
+                } else {
+                    scoreIndex = message.indexOf("score mate");
+                    scoreString = message.slice(scoreIndex).split(" ")[2] || "0";
+                    let mateEvaluation = parseInt(scoreString) || 0;
+                    evaluation = "#" + Math.abs(mateEvaluation);
+                }
 
+                let pvString = "";
+                if (pvIndex !== -1) {
+                    let pvText = message.slice(pvIndex + 3).trim();
+                    pvString = pvText.split(" ").slice(0, 3).join(" ");
+                }
 
+                if (multipv >= 1 && multipv <= 3) {
+                    evaluations[multipv - 1] = evaluation;
+                    lines[multipv - 1] = pvString;
+                    scoreStrings[multipv - 1] = scoreString;
+                }
+                
+                // Only display when we have at least one valid evaluation
+                if (evaluations[0] !== null) {
+                    displayEvaluation(lines, evaluations, scoreStrings[0]);
+                }
 
+            } else if (message.startsWith("bestmove")) {
+                isAwaitingEvaluation = false;
+                // Log the best move and reset the UI state.
+                console.log("Stockfish Best Move:", message);
+                // The `displayEvaluation` will already have the final value from the last `info` message.
+            }
+        };
+        stockfishWorker.onerror = function(error) {
+            console.error("Stockfish Worker Error:", error);
+            isAwaitingEvaluation = false;
+        };
+        // Initial setup commands
+        stockfishWorker.postMessage("uci");
+        stockfishWorker.postMessage("isready");
 
+    } else if (isEngineReady) {
+        // If the worker is already initialized and ready, just send the new position.
+        startAnalysis();
+    }
+}
 
+// Cache DOM elements for better performance
+let evaluationElements = null;
 
+function initializeEvaluationElements() {
+    evaluationElements = {
+        blackBar: document.querySelector(".blackBar"),
+        evalNum: document.querySelector(".evalNum"),
+        evalMain: document.getElementById("eval"),
+        evalText: document.getElementById("evalText"),
+        evalLines: [],
+        lineElements: []
+    };
+    
+    // Cache evaluation line elements
+    for (let i = 1; i <= 3; i++) {
+        evaluationElements.evalLines.push(document.getElementById(`eval${i}`));
+        evaluationElements.lineElements.push(document.getElementById(`line${i}`));
+    }
+}
 
-function showAlert(message) {
-  const alert = document.getElementById("alert");
-  alert.innerHTML = message;
-  alert.style.display = "flex";
-  if(isOpponentWhite)
-   alert.style.transform = alert.style.transform ='rotate(180deg)' ;
+/**
+ * Displays the evaluation bar and number based on Stockfish's evaluation.
+ * Improved version with error handling, performance optimization, and better code organization.
+ * @param {Array<string>} lines Array of PV lines from Stockfish.
+ * @param {Array<number|string>} evaluations Array of evaluations from Stockfish.
+ * @param {string} scoreString The raw score string from Stockfish.
+ */
+function displayEvaluation(lines, evaluations, scoreString) {
+    // Initialize elements cache if not done yet
+    if (!evaluationElements) {
+        initializeEvaluationElements();
+    }
+    
+    // Check if required DOM elements exist
+    if (!evaluationElements.blackBar || !evaluationElements.evalNum) {
+        console.error("Required evaluation bar elements not found in DOM");
+        return false;
+    }
 
-  setTimeout(function () {
-    alert.style.display = "none";
-  }, 3000);
+    try {
+        if (scoreString === "Thinking...") {
+            evaluationElements.evalMain.textContent = '';
+            evaluationElements.evalText.textContent = "Thinking...";
+            evaluationElements.blackBar.style.height = '50%';
+            evaluationElements.evalNum.textContent = '0.00';
+            for (let i = 0; i < 3; i++) {
+                if (evaluationElements.evalLines[i]) evaluationElements.evalLines[i].textContent = '';
+                if (evaluationElements.lineElements[i]) evaluationElements.lineElements[i].textContent = '';
+            }
+            return;
+        }
+
+        let evaluation = evaluations[0] !== null ? evaluations[0] : 0;
+        scoreString = (typeof scoreString === 'string') ? scoreString.trim() : '0';
+        if (!scoreString) scoreString = '0';
+
+        // Update evaluation bar and number
+        updateEvaluationBar(evaluation, scoreString);
+        
+        // Update evaluation lines
+        updateEvaluationLines(lines, evaluations);
+        
+        // Update main evaluation text
+        updateEvaluationText(evaluation, scoreString);
+        
+        return true;
+        
+    } catch (error) {
+        console.error("Error in displayEvaluation:", error);
+        return false;
+    }
+}
+
+function updateEvaluationBar(evaluation, scoreString) {
+    const { blackBar, evalNum } = evaluationElements;
+    
+    if (typeof evaluation === 'number') {
+        // Clamp evaluation to reasonable range
+        const clampedEval = Math.max(-5, Math.min(5, evaluation));
+        const blackBarHeight = 50 - (clampedEval / 5 * 50); // Scale to 0-100%
+        const finalHeight = Math.max(0, Math.min(100, blackBarHeight));
+        
+        blackBar.style.height = finalHeight + "%";
+        evalNum.textContent = clampedEval.toFixed(2);
+        
+    } else if (typeof evaluation === 'string' && evaluation.startsWith('#')) {
+        // Handle mate evaluations
+        const scoreValue = parseInt(scoreString) || 0;
+        // Check if the current player is winning or losing
+        const isWinning = (scoreValue > 0 && isWhiteTurn) || (scoreValue < 0 && !isWhiteTurn);
+        
+        blackBar.style.height = isWinning ? '0%' : '100%';
+        evalNum.textContent = evaluation;
+    }
+}
+
+function updateEvaluationLines(lines, evaluations) {
+    const maxLines = Math.min(lines.length, evaluations.length, 3);
+    
+    for (let i = 0; i < 3; i++) {
+        const evalElement = evaluationElements.evalLines[i];
+        const lineElement = evaluationElements.lineElements[i];
+        
+        if (evalElement && lineElement) {
+            if (i < maxLines && evaluations[i] !== null) {
+                evalElement.textContent = evaluations[i].toString();
+                lineElement.textContent = (lines[i] || '').trim();
+            } else {
+                evalElement.textContent = '';
+                lineElement.textContent = '';
+            }
+        }
+    }
+}
+
+function updateEvaluationText(evaluation, scoreString) {
+    const { evalMain, evalText } = evaluationElements;
+    
+    if (!evalMain || !evalText) return;
+    
+    evalMain.textContent = evaluation !== undefined ? evaluation.toString() : '';
+    
+    if (typeof evaluation === 'string' && evaluation.includes('#')) {
+        // Handle mate evaluations
+        const mateInMoves = Math.abs(parseInt(evaluation.slice(1)) || 0);
+        const scoreValue = parseInt(scoreString) || 0;
+        const isWhiteWinning = (scoreValue > 0 && isWhiteTurn) || (scoreValue < 0 && !isWhiteTurn);
+        const winningColor = isWhiteWinning ? "White" : "Black";
+        
+        evalText.textContent = `${winningColor} can mate in ${mateInMoves} moves`;
+        
+    } else if (typeof evaluation === 'number') {
+        // Handle numeric evaluations
+        if (evaluation >= 0.5) {
+            evalText.textContent = "White has an advantage";
+        } else if (evaluation <= -0.5) {
+            evalText.textContent = "Black has an advantage";
+        } else {
+            evalText.textContent = "Equal position";
+        }
+    } else {
+        evalText.textContent = "Unknown";
+    }
 }
