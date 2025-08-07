@@ -9,15 +9,6 @@ let pawnPromotionTargetSquareId = null;
 let isEngineWhite = false;
 let selectedLevel = 10; // Default to max level
 
-// Multiplayer state variables
-let isMultiplayer = false;
-let myColor = null;
-let myUsername = null;
-let turnColor = 'white';
-let allowMovement = false;
-let opponentUsername = null;
-let ws = null;
-
 // Castling flags
 let hasWhiteKingMoved = false;
 let hasBlackKingMoved = false;
@@ -43,254 +34,27 @@ const promotionOverlay = document.getElementById('promotion-overlay');
 const promotionChoices = document.querySelector('.promotion-choices');
 let evaluationElements = null;
 
-// New DOM elements for mode selection and multiplayer
-const modeSelectionContainer = document.getElementById('mode-selection-container');
-const startSinglePlayerBtn = document.getElementById('start-single-player-btn');
-const showMultiplayerLobbyBtn = document.getElementById('show-multiplayer-lobby-btn');
-const singlePlayerContainer = document.getElementById('single-player-container');
-const multiplayerContainer = document.getElementById('multiplayer-container');
-const lobbyContainer = document.getElementById('lobby-container');
-const multiplayerGameBoard = document.getElementById('multiplayer-game-board');
-const usernameInput = document.getElementById('username');
-const joinGameBtn = document.getElementById('join-game-btn');
-const statusMessage = document.getElementById('status-message');
-const playerList = document.getElementById('player-list');
-const resignBtn = document.getElementById('resign-btn');
-const turnIndicator = document.getElementById('turn-indicator');
-const playerInfo = document.getElementById('player-info');
-
 // Ensure DOM is fully loaded before setting up event listeners
 document.addEventListener('DOMContentLoaded', (event) => {
-    // Show mode selection screen initially
-    modeSelectionContainer.classList.remove('hidden');
-    singlePlayerContainer.classList.add('hidden');
-    multiplayerContainer.classList.add('hidden');
-
-    // Initialize Stockfish worker only once
-    initStockfishWorker();
-
-    startSinglePlayerBtn.addEventListener('click', startSinglePlayerGame);
-    showMultiplayerLobbyBtn.addEventListener('click', showMultiplayerLobby);
-    joinGameBtn.addEventListener('click', joinGame);
-    resignBtn.addEventListener('click', resignGame);
-
-    // Add event listeners for single player buttons
+    setupBoardSquares();
+    initializeBoardState();
+    initializeEvaluationElements();
+    setupPieces();
+    renderBoard();
+    // Add event listeners for buttons
     newGameBtn.addEventListener('click', newGame);
     switchSidesBtn.addEventListener('click', flipBoard);
     levelSelect.addEventListener('change', updateLevel);
-    updateLevel(); // Set initial skill level for single player mode
+    updateLevel(); // Set initial skill level
 });
-
-/**
- * Initializes the Stockfish Web Worker.
- */
-function initStockfishWorker() {
-    try {
-        // Assume the worker file is in the lib directory relative to the main page.
-        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
-        stockfishWorker.postMessage("uci");
-        stockfishWorker.postMessage("isready");
-        stockfishWorker.postMessage("setoption name multipv value 3");
-        console.log("Stockfish worker initialized successfully.");
-    } catch (e) {
-        console.error("Failed to initialize Stockfish worker:", e);
-        showMessage("AI engine is unavailable. Playing against a human is still possible.");
-    }
-}
-
-/**
- * Displays the multiplayer lobby and hides other screens.
- */
-function showMultiplayerLobby() {
-    isMultiplayer = true;
-    modeSelectionContainer.classList.add('hidden');
-    singlePlayerContainer.classList.add('hidden');
-    multiplayerContainer.classList.remove('hidden');
-    lobbyContainer.classList.remove('hidden');
-    multiplayerGameBoard.classList.add('hidden');
-}
-
-/**
- * Starts a single-player game against the AI.
- */
-function startSinglePlayerGame() {
-    isMultiplayer = false;
-    modeSelectionContainer.classList.add('hidden');
-    multiplayerContainer.classList.add('hidden');
-    singlePlayerContainer.classList.remove('hidden');
-    
-    // Set up single-player UI visibility
-    document.getElementById('level').style.display = 'block';
-    document.getElementById('newGame').style.display = 'block';
-    document.getElementById('switchSides').style.display = 'block';
-    document.getElementById('evalBar').style.display = 'flex';
-    document.getElementById('topLines').style.display = 'flex';
-    document.getElementById('resign-btn').style.display = 'none';
-
-    newGame();
-    updateTurnIndicatorSinglePlayer();
-    const currentFEN = generateFEN(board);
-    getEvaluation(currentFEN, displayEvaluation);
-}
-
-/**
- * Handles joining a multiplayer game.
- */
-function joinGame() {
-    myUsername = usernameInput.value.trim();
-    if (myUsername === "") {
-        showMessage("Please enter a username.");
-        return;
-    }
-    
-    statusMessage.textContent = "Connecting...";
-    ws = new WebSocket("ws://localhost:3000");
-
-    ws.onopen = function() {
-        console.log("WebSocket connection established.");
-        ws.send(JSON.stringify({ type: "join", username: myUsername }));
-        statusMessage.textContent = "Waiting for an opponent...";
-    };
-
-    ws.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
-    };
-
-    ws.onclose = function() {
-        console.log("WebSocket connection closed.");
-        showMessage("Connection to server lost. Please refresh.");
-        isMultiplayer = false;
-        // Show mode selection screen on disconnect
-        singlePlayerContainer.classList.add('hidden');
-        multiplayerContainer.classList.add('hidden');
-        modeSelectionContainer.classList.remove('hidden');
-    };
-
-    ws.onerror = function(error) {
-        console.error("WebSocket error:", error);
-        showMessage("WebSocket error occurred. Please refresh.");
-    };
-}
-
-/**
- * Handles all incoming WebSocket messages from the server.
- */
-function handleWebSocketMessage(data) {
-    switch (data.type) {
-        case "playerList":
-            // Update the list of players in the lobby
-            playerList.innerHTML = '';
-            data.players.forEach(p => {
-                const li = document.createElement('li');
-                li.textContent = p;
-                playerList.appendChild(li);
-            });
-            if (data.players.length === 2) {
-                statusMessage.textContent = "Game starting...";
-            }
-            break;
-        case "color":
-            // Game starts, assign color and show game board
-            isMultiplayer = true;
-            myColor = data.color;
-            opponentUsername = data.opponent;
-            
-            lobbyContainer.classList.add('hidden');
-            multiplayerGameBoard.classList.remove('hidden');
-            
-            turnColor = 'white';
-            allowMovement = myColor === turnColor;
-
-            // Hide single-player elements, show multiplayer elements
-            document.getElementById('level').style.display = 'none';
-            document.getElementById('newGame').style.display = 'none';
-            document.getElementById('switchSides').style.display = 'none';
-            document.getElementById('evalBar').style.display = 'none';
-            document.getElementById('topLines').style.display = 'none';
-            document.getElementById('resign-btn').style.display = 'block';
-
-            // Set up board for multiplayer
-            newGame();
-            if (myColor === 'black') {
-                chessBoard.classList.add('flipped');
-            } else {
-                chessBoard.classList.remove('flipped');
-            }
-            
-            updateTurnIndicatorMultiplayer();
-            updatePlayerInfoMultiplayer();
-            break;
-        case "move":
-            // An opponent's move
-            performMove(data.startSquare, data.endSquare, data.promotedTo);
-            break;
-        case "resign":
-            // Opponent resigned
-            showMessage(`Your opponent has resigned! You win!`);
-            allowMovement = false;
-            break;
-        case "error":
-            showMessage(data.message);
-            break;
-    }
-}
-
-/**
- * Sends a move to the WebSocket server.
- */
-function sendMoveToServer(startSquare, endSquare, promotedTo = '') {
-    if (!isMultiplayer || !ws) return;
-    ws.send(JSON.stringify({
-        type: "move",
-        startSquare: startSquare,
-        endSquare: endSquare,
-        promotedTo: promotedTo
-    }));
-}
-
-/**
- * Handles the user resigning from a multiplayer game.
- */
-function resignGame() {
-    if (isMultiplayer && ws) {
-        // use a custom modal instead of alert()
-        const modal = document.createElement('div');
-        modal.className = 'modal';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <p>Are you sure you want to resign?</p>
-                <div class="modal-buttons">
-                    <button id="confirm-resign">Yes</button>
-                    <button id="cancel-resign">No</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-
-        document.getElementById('confirm-resign').addEventListener('click', () => {
-            ws.send(JSON.stringify({
-                type: "resign",
-                winner: myColor === 'white' ? 'black' : 'white'
-            }));
-            showMessage("You have resigned from the game.");
-            allowMovement = false;
-            modal.remove();
-        });
-
-        document.getElementById('cancel-resign').addEventListener('click', () => {
-            modal.remove();
-        });
-    }
-}
 
 /**
  * Updates the engine's skill level based on the selected level.
  */
 function updateLevel() {
-    if (isMultiplayer) return;
     selectedLevel = parseInt(levelSelect.value, 10) || 10;
     const skillLevel = Math.round((selectedLevel - 1) * 2); // Map 1-10 to 0-20 skill levels
+    const depth = Math.max(1, Math.min(20, selectedLevel * 2)); // Scale depth from 2 to 20
     if (stockfishWorker) {
         stockfishWorker.postMessage("setoption name Skill Level value " + skillLevel);
         stockfishWorker.postMessage("setoption name Contempt value 0"); // Neutral contempt for fairness
@@ -302,22 +66,56 @@ function updateLevel() {
  */
 function newGame() {
     const initialBoardHTML = `
-        <div class="square white" id="a8"><div class="coordinate rank blackText">8</div><div class="piece rook" color="black"><img src="black-Rook.png" alt="Black Rook"></div></div>
-        <div class="square black" id="b8"><div class="piece knight" color="black"><img src="black-Knight.png" alt="Black Knight"></div></div>
-        <div class="square white" id="c8"><div class="piece bishop" color="black"><img src="black-Bishop.png" alt="Black Bishop"></div></div>
-        <div class="square black" id="d8"><div class="piece queen" color="black"><img src="black-Queen.png" alt="Black Queen"></div></div>
-        <div class="square white" id="e8"><div class="piece king" color="black"><img src="black-King.png" alt="Black King"></div></div>
-        <div class="square black" id="f8"><div class="piece bishop" color="black"><img src="black-Bishop.png" alt="Black Bishop"></div></div>
-        <div class="square white" id="g8"><div class="piece knight" color="black"><img src="black-Knight.png" alt="Black Knight"></div></div>
-        <div class="square black" id="h8"><div class="piece rook" color="black"><img src="black-Rook.png" alt="Black Rook"></div></div>
-        <div class="square black" id="a7"><div class="coordinate rank whiteText">7</div><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
-        <div class="square white" id="b7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
-        <div class="square black" id="c7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
-        <div class="square white" id="d7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
-        <div class="square black" id="e7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
-        <div class="square white" id="f7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
-        <div class="square black" id="g7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
-        <div class="square white" id="h7"><div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div></div>
+        <div class="square white" id="a8">
+            <div class="coordinate rank blackText">8</div>
+            <div class="piece rook" color="black"><img src="black-Rook.png" alt="Black Rook"></div>
+        </div>
+        <div class="square black" id="b8">
+            <div class="piece knight" color="black"><img src="black-Knight.png" alt="Black Knight"></div>
+        </div>
+        <div class="square white" id="c8">
+            <div class="piece bishop" color="black"><img src="black-Bishop.png" alt="Black Bishop"></div>
+        </div>
+        <div class="square black" id="d8">
+            <div class="piece queen" color="black"><img src="black-Queen.png" alt="Black Queen"></div>
+        </div>
+        <div class="square white" id="e8">
+            <div class="piece king" color="black"><img src="black-King.png" alt="Black King"></div>
+        </div>
+        <div class="square black" id="f8">
+            <div class="piece bishop" color="black"><img src="black-Bishop.png" alt="Black Bishop"></div>
+        </div>
+        <div class="square white" id="g8">
+            <div class="piece knight" color="black"><img src="black-Knight.png" alt="Black Knight"></div>
+        </div>
+        <div class="square black" id="h8">
+            <div class="piece rook" color="black"><img src="black-Rook.png" alt="Black Rook"></div>
+        </div>
+        <div class="square black" id="a7">
+            <div class="coordinate rank whiteText">7</div>
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square white" id="b7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square black" id="c7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square white" id="d7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square black" id="e7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square white" id="f7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square black" id="g7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
+        <div class="square white" id="h7">
+            <div class="piece pawn" color="black"><img src="black-Pawn.png" alt="Black Pawn"></div>
+        </div>
         <div class="square white" id="a6"></div><div class="square black" id="b6"></div><div class="square white" id="c6"></div><div class="square black" id="d6"></div><div class="square white" id="e6"></div><div class="square black" id="f6"></div><div class="square white" id="g6"></div><div class="square black" id="h6"></div>
         <div class="square black" id="a5"></div><div class="square white" id="b5"></div><div class="square black" id="c5"></div><div class="square white" id="d5"></div><div class="square black" id="e5"></div><div class="square white" id="f5"></div><div class="square black" id="g5"></div><div class="square white" id="h5"></div>
         <div class="square white" id="a4"></div><div class="square black" id="b4"></div><div class="square white" id="c4"></div><div class="square black" id="d4"></div><div class="square white" id="e4"></div><div class="square black" id="f4"></div><div class="square white" id="g4"></div><div class="square black" id="h4"></div>
@@ -360,25 +158,20 @@ function newGame() {
     initializeBoardState();
     setupPieces();
     renderBoard();
-
-    if (!isMultiplayer) {
-        updateLevel(); // Reapply the current skill level if single player
-        updateTurnIndicatorSinglePlayer();
-        const currentFEN = generateFEN(board);
-        getEvaluation(currentFEN, displayEvaluation);
-    }
+    updateLevel(); // Reapply the current skill level
 }
 
 /**
  * Flips the board and switches sides for the AI opponent.
  */
 function flipBoard() {
-    if (isMultiplayer) return; // Disable in multiplayer
     chessBoard.classList.toggle('flipped');
     isEngineWhite = !isEngineWhite;
-    newGame(); // Reset the board and turn
-    updateTurnIndicatorSinglePlayer();
     renderBoard();
+    if ((isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn)) {
+        const currentFEN = generateFEN(board);
+        getBestMove(currentFEN, playBestMove);
+    }
 }
 
 /**
@@ -521,10 +314,6 @@ function selectSquare(event) {
     const pieceOnSquare = clickedSquare.querySelector('.piece');
     const clickedSquareId = clickedSquare.id;
 
-    let turnPlayerColor = isMultiplayer ? turnColor : (isWhiteTurn ? 'white' : 'black');
-    let isPlayerTurn = isMultiplayer ? (myColor === turnPlayerColor) :
-                             (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
-
     if (selectedPiece) {
         const originalSquareId = selectedPiece.parentElement.id;
         if (legalSquares.includes(clickedSquareId)) {
@@ -537,7 +326,8 @@ function selectSquare(event) {
         }
     } else if (pieceOnSquare) {
         const pieceColor = pieceOnSquare.getAttribute("color");
-        if (isPlayerTurn && pieceColor === turnPlayerColor) {
+        const isPlayerTurn = (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
+        if (isPlayerTurn && ((isWhiteTurn && pieceColor === "white") || (!isWhiteTurn && pieceColor === "black"))) {
             selectedPiece = pieceOnSquare;
             legalSquares = getLegalMovesForPiece(clickedSquareId, pieceOnSquare);
         }
@@ -558,12 +348,9 @@ function drag(ev) {
     const piece = ev.target.closest('.piece');
     if (!piece) return;
     const pieceColor = piece.getAttribute("color");
+    const isPlayerTurn = (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
 
-    let turnPlayerColor = isMultiplayer ? turnColor : (isWhiteTurn ? 'white' : 'black');
-    const isPlayerTurn = isMultiplayer ? (myColor === turnPlayerColor) :
-                         (isWhiteTurn && !isEngineWhite) || (!isWhiteTurn && isEngineWhite);
-
-    if (isPlayerTurn && pieceColor === turnPlayerColor) {
+    if (isPlayerTurn && ((isWhiteTurn && pieceColor === "white") || (!isWhiteTurn && pieceColor === "black"))) {
         selectedPiece = piece;
         ev.dataTransfer.setData("text", piece.id);
         const startingSquareId = piece.parentNode.id;
@@ -680,15 +467,7 @@ function performMove(startingSquareId, destinationSquareId, promotedTo = "") {
     }
 
     renderBoard();
-    
-    // Check for pawn promotion
-    if (pieceType === 'pawn' && (toRow === 0 || toRow === 7) && !promotedTo) {
-        pawnPromotionTargetSquareId = destinationSquareId;
-        showPromotionUI(pieceColor);
-        return;
-    }
-
-    finalizeMove(startingSquareId, destinationSquareId, promotedTo);
+    finalizeMove();
 }
 
 /**
@@ -736,7 +515,7 @@ function findKing(kingColor, boardState) {
 /**
  * Checks if a king of a given color is in check on a specific board state.
  */
-function isKingInCheck(kingColor, boardState, forCheckValidation = false) {
+function isKingInCheck(kingColor, boardState) {
     const kingCoords = findKing(kingColor, boardState);
     if (!kingCoords) return false;
     const [kingRow, kingCol] = kingCoords;
@@ -745,7 +524,7 @@ function isKingInCheck(kingColor, boardState, forCheckValidation = false) {
         for (let c = 0; c < 8; c++) {
             const piece = boardState[r][c];
             if (piece && piece.color === opponentColor) {
-                const pseudoLegalMoves = getPseudoLegalMoves(r, c, piece.type, piece.color, boardState, forCheckValidation);
+                const pseudoLegalMoves = getPseudoLegalMoves(r, c, piece.type, piece.color, boardState, true);
                 if (pseudoLegalMoves.some(move => move[0] === kingRow && move[1] === kingCol)) {
                     return true;
                 }
@@ -805,7 +584,7 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                     const targetSquareId = coordsToSquareId(nextRow, c);
                     if (targetSquareId === enPassantTargetSquare) {
                         const pawnBesideRow = startRow;
-                        const pawnBesideCol = toCol;
+                        const pawnBesideCol = c;
                         const pieceBeside = boardState[pawnBesideRow][pawnBesideCol];
                         if (pieceBeside && pieceBeside.type === 'pawn' && pieceBeside.color !== pieceColor) {
                             addMove(nextRow, c);
@@ -880,15 +659,15 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
             });
             const kingRow = (pieceColor === 'white') ? 7 : 0;
             const kingMovedFlag = (pieceColor === 'white') ? hasWhiteKingMoved : hasBlackKingMoved;
-            if (!kingMovedFlag && startRow === kingRow && startCol === 4 && !forCheckValidation) {
+            if (!kingMovedFlag && startRow === kingRow && startCol === 4) {
                 const kingsideRookMovedFlag = (pieceColor === 'white') ? hasWhiteKingsideRookMoved : hasBlackKingsideRookMoved;
                 const kingsideRookCol = 7;
                 if (!kingsideRookMovedFlag && boardState[kingRow][5] === null && boardState[kingRow][6] === null &&
                     boardState[kingRow][kingsideRookCol] && boardState[kingRow][kingsideRookCol].type === 'rook' && boardState[kingRow][kingsideRookCol].color === pieceColor) {
                     const pathClearAndSafe =
-                        !isKingInCheck(pieceColor, boardState, true) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState), true) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState), true);
+                        !isKingInCheck(pieceColor, boardState) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState)) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState));
                     if (pathClearAndSafe) {
                         addMove(kingRow, 6);
                     }
@@ -898,9 +677,9 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                 if (!queensideRookMovedFlag && boardState[kingRow][1] === null && boardState[kingRow][2] === null && boardState[kingRow][3] === null &&
                     boardState[kingRow][queensideRookCol] && boardState[kingRow][queensideRookCol].type === 'rook' && boardState[kingRow][queensideRookCol].color === pieceColor) {
                     const pathClearAndSafe =
-                        !isKingInCheck(pieceColor, boardState, true) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState), true) &&
-                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState), true);
+                        !isKingInCheck(pieceColor, boardState) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState)) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState));
                     if (pathClearAndSafe) {
                         addMove(kingRow, 2);
                     }
@@ -943,8 +722,8 @@ function getLegalMovesForPiece(startSquareId, pieceElement) {
  * Checks the current game status (check, checkmate, stalemate).
  */
 function checkGameStatus() {
-    const currentPlayerColor = isMultiplayer ? turnColor : (isWhiteTurn ? 'white' : 'black');
-    const opponentPlayerColor = currentPlayerColor === 'white' ? 'black' : 'white';
+    const currentPlayerColor = isWhiteTurn ? 'white' : 'black';
+    const opponentPlayerColor = isWhiteTurn ? 'black' : 'white';
     const kingInCheck = isKingInCheck(currentPlayerColor, board);
     let hasLegalMoves = false;
     for (let r = 0; r < 8; r++) {
@@ -967,10 +746,8 @@ function checkGameStatus() {
     }
     if (kingInCheck && !hasLegalMoves) {
         showMessage(`Checkmate! ${opponentPlayerColor.toUpperCase()} wins!`);
-        allowMovement = false; // End the game
     } else if (!kingInCheck && !hasLegalMoves) {
         showMessage("Stalemate! It's a draw.");
-        allowMovement = false; // End the game
     } else if (kingInCheck) {
         showMessage(`${currentPlayerColor.toUpperCase()} is in check!`);
     } else {
@@ -1047,12 +824,6 @@ function selectPromotionPiece(selectedType, pawnColor) {
         color: pawnColor
     };
     renderBoard();
-    
-    // In multiplayer, send the move with promotion info
-    if (isMultiplayer) {
-        sendMoveToServer(selectedPiece.parentElement.id, pawnPromotionTargetSquareId, selectedType.charAt(0));
-    }
-    
     pawnPromotionTargetSquareId = null;
     finalizeMove();
 }
@@ -1060,69 +831,17 @@ function selectPromotionPiece(selectedType, pawnColor) {
 /**
  * Finalizes a move: toggles turn, clears legal squares, checks game status, and updates evaluation.
  */
-function finalizeMove(startSquare, endSquare, promotedTo = '') {
-    // Multiplayer logic
-    if (isMultiplayer) {
-        // Send the move to the server if it's our turn
-        if (myColor === turnColor) {
-            sendMoveToServer(startSquare, endSquare, promotedTo);
-        }
-        
-        turnColor = turnColor === 'white' ? 'black' : 'white';
-        allowMovement = myColor === turnColor;
-        updateTurnIndicatorMultiplayer();
-        checkGameStatus();
-        
-    } else {
-        // Single player logic
-        isWhiteTurn = !isWhiteTurn;
-        legalSquares.length = 0;
-        checkGameStatus();
-        const currentFEN = generateFEN(board);
-        getEvaluation(currentFEN, displayEvaluation);
+function finalizeMove() {
+    isWhiteTurn = !isWhiteTurn;
+    legalSquares.length = 0;
+    checkGameStatus();
+    const currentFEN = generateFEN(board);
+    getEvaluation(currentFEN, displayEvaluation);
 
-        const isEngineTurn = (isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn);
-        if (isEngineTurn) {
-            getBestMove(currentFEN, playBestMove);
-        }
-        updateTurnIndicatorSinglePlayer();
+    const isEngineTurn = (isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn);
+    if (isEngineTurn) {
+        getBestMove(currentFEN, playBestMove);
     }
-}
-
-/**
- * Updates the turn indicator for multiplayer.
- */
-function updateTurnIndicatorMultiplayer() {
-    const turnIndicator = document.getElementById('mp-turn-indicator');
-    turnIndicator.textContent = `${turnColor.charAt(0).toUpperCase() + turnColor.slice(1)}'s Turn`;
-    document.body.style.backgroundColor = turnColor === 'white' ? '#f0f0f0' : '#333';
-}
-
-/**
- * Updates the player info for multiplayer.
- */
-function updatePlayerInfoMultiplayer() {
-    const playerInfo = document.getElementById('mp-player-info');
-    playerInfo.textContent = `You are ${myColor} - playing against ${opponentUsername}`;
-}
-
-/**
- * Updates the turn indicator and other info for single player games.
- */
-function updateTurnIndicatorSinglePlayer() {
-    if (isMultiplayer) return;
-    const playerColor = isEngineWhite ? 'black' : 'white';
-    const turnColor = isWhiteTurn ? 'white' : 'black';
-    const turnText = `${turnColor.charAt(0).toUpperCase() + turnColor.slice(1)}'s Turn`;
-    
-    turnIndicator.textContent = turnText;
-    turnIndicator.style.color = (turnColor === 'white') ? 'black' : 'white';
-    document.body.style.backgroundColor = turnColor === 'white' ? '#f0f0f0' : '#333';
-
-    // Show AI status in the player info section
-    const userColor = isEngineWhite ? 'white' : 'black';
-    playerInfo.textContent = `You are playing as ${userColor.charAt(0).toUpperCase() + userColor.slice(1)} vs AI`;
-    playerInfo.style.display = 'block';
 }
 
 /**
@@ -1180,20 +899,26 @@ function generateFEN(boardState) {
  * Gets the best move from Stockfish engine based on the current board state.
  */
 function getBestMove(fen, callback) {
-    if (isMultiplayer || !stockfishWorker) {
-        if (!stockfishWorker) showMessage("AI engine is unavailable.");
-        return;
+    if (!stockfishWorker) {
+        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
+        stockfishWorker.onmessage = function (event) {
+            let message = event.data;
+            if (message.startsWith("bestmove")) {
+                const bestMove = message.split(" ")[1];
+                stockfishWorker.removeEventListener('message', listener);
+                callback(bestMove);
+            }
+        };
+        stockfishWorker.onerror = function(error) {
+            console.error("Stockfish Worker Error:", error);
+        };
+        stockfishWorker.postMessage("uci");
+        stockfishWorker.postMessage("isready");
+        stockfishWorker.postMessage("setoption name multipv value 3");
     }
-    // Remove any previous listener to prevent multiple calls
-    const oldListener = getBestMove.listener;
-    if (oldListener) {
-        stockfishWorker.removeEventListener('message', oldListener);
-    }
-    
     stockfishWorker.postMessage("position fen " + fen);
     const depth = Math.max(1, Math.min(20, selectedLevel * 2)); // Dynamic depth based on level
     stockfishWorker.postMessage(`go depth ${depth}`);
-    
     const listener = function(event) {
         const message = event.data;
         if (message.startsWith("bestmove")) {
@@ -1203,71 +928,60 @@ function getBestMove(fen, callback) {
         }
     };
     stockfishWorker.addEventListener('message', listener);
-    getBestMove.listener = listener;
 }
 
 /**
  * Gets evaluation from Stockfish worker.
  */
 function getEvaluation(fen, callback) {
-    if (isMultiplayer || !stockfishWorker) {
-        if (!stockfishWorker) {
-            updateEvaluationBar(0, "0");
-            updateEvaluationLines([], []);
-            updateEvaluationText(0, "0");
-        }
-        return;
+    if (!stockfishWorker) {
+        stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
+        stockfishWorker.onmessage = function (event) {
+            let message = event.data;
+            if (message.startsWith("info depth 10")) {
+                let multipvIndex = message.indexOf("multipv");
+                if (multipvIndex !== -1) {
+                    let multipvString = message.slice(multipvIndex).split(" ")[1];
+                    let multipv = parseInt(multipvString) || 1;
+                    while (evaluations.length < 3) evaluations.push(null);
+                    while (lines.length < 3) lines.push("");
+                    while (scoreStrings.length < 3) scoreStrings.push(null);
+                    let scoreIndex = message.indexOf("score cp");
+                    let pvIndex = message.indexOf("pv");
+                    if (scoreIndex !== -1) {
+                        scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
+                        let evaluation = parseInt(scoreStrings[multipv - 1]) / 100 || 0;
+                        evaluation = isWhiteTurn ? evaluation : -evaluation;
+                        evaluations[multipv - 1] = evaluation;
+                    } else {
+                        scoreIndex = message.indexOf("score mate");
+                        scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
+                        let evaluation = parseInt(scoreStrings[multipv - 1]) || 0;
+                        evaluations[multipv - 1] = "#" + Math.abs(evaluation);
+                    }
+                    if (pvIndex !== -1) {
+                        let pvString = message.slice(pvIndex + 3).trim();
+                        lines[multipv - 1] = pvString;
+                    }
+                    if (multipv === 3) {
+                        callback(lines, evaluations, scoreStrings);
+                        evaluations = [];
+                        lines = [];
+                        scoreStrings = [];
+                    }
+                }
+            }
+        };
+        stockfishWorker.onerror = function(error) {
+            console.error("Stockfish Worker Error:", error);
+        };
+        stockfishWorker.postMessage("uci");
+        stockfishWorker.postMessage("isready");
+        stockfishWorker.postMessage("setoption name multipv value 3");
     }
-    // Remove any previous listener to prevent multiple calls
-    const oldListener = getEvaluation.listener;
-    if (oldListener) {
-        stockfishWorker.removeEventListener('message', oldListener);
-    }
-
     stockfishWorker.postMessage("ucinewgame");
     stockfishWorker.postMessage("position fen " + fen);
     stockfishWorker.postMessage("go depth 10"); // Fixed depth for evaluation
-    
-    const listener = function(event) {
-        const message = event.data;
-        if (message.startsWith("info")) {
-            // Process evaluation output from Stockfish
-            let multipvIndex = message.indexOf("multipv");
-            if (multipvIndex !== -1) {
-                let multipv = parseInt(message.slice(multipvIndex).split(" ")[1]) || 1;
-                while (evaluations.length < 3) evaluations.push(null);
-                while (lines.length < 3) lines.push("");
-                while (scoreStrings.length < 3) scoreStrings.push(null);
-
-                let scoreIndex = message.indexOf("score cp");
-                let pvIndex = message.indexOf("pv");
-                if (scoreIndex !== -1) {
-                    scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
-                    let evaluation = parseInt(scoreStrings[multipv - 1]) / 100 || 0;
-                    evaluation = isWhiteTurn ? evaluation : -evaluation;
-                    evaluations[multipv - 1] = evaluation;
-                } else {
-                    scoreIndex = message.indexOf("score mate");
-                    scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
-                    let evaluation = parseInt(scoreStrings[multipv - 1]) || 0;
-                    evaluations[multipv - 1] = "#" + Math.abs(evaluation);
-                }
-                if (pvIndex !== -1) {
-                    let pvString = message.slice(pvIndex + 3).trim();
-                    lines[multipv - 1] = pvString;
-                }
-                if (multipv === 3) {
-                    callback(lines, evaluations, scoreStrings);
-                    evaluations = [];
-                    lines = [];
-                    scoreStrings = [];
-                    stockfishWorker.removeEventListener('message', listener);
-                }
-            }
-        }
-    };
-    stockfishWorker.addEventListener('message', listener);
-    getEvaluation.listener = listener;
 }
 
 function initializeEvaluationElements() {
@@ -1284,9 +998,7 @@ function initializeEvaluationElements() {
         evaluationElements.lineElements[i-1] = document.getElementById(`line${i}`);
     }
 }
-
 function displayEvaluation(lines, evaluations, scoreString) {
-    if (isMultiplayer) return; // Disable in multiplayer
     if (!evaluationElements) {
         initializeEvaluationElements();
     }
@@ -1311,14 +1023,6 @@ function displayEvaluation(lines, evaluations, scoreString) {
 }
 function updateEvaluationBar(evaluation, scoreString) {
     const { blackBar, evalNum } = evaluationElements;
-    if (isMultiplayer) {
-        document.getElementById('evalBar').style.display = 'none';
-        document.getElementById('topLines').style.display = 'none';
-        return;
-    }
-    document.getElementById('evalBar').style.display = 'flex';
-    document.getElementById('topLines').style.display = 'flex';
-
     if (typeof evaluation === 'number') {
         const clampedEval = Math.max(-15, Math.min(15, evaluation));
         const blackBarHeight = 50 - (clampedEval / 15 * 100);
@@ -1333,7 +1037,6 @@ function updateEvaluationBar(evaluation, scoreString) {
     }
 }
 function updateEvaluationLines(lines, evaluations) {
-    if (isMultiplayer) return;
     const maxLines = Math.min(lines.length, evaluations.length, 3);
     for (let i = 0; i < 3; i++) {
         const evalElement = evaluationElements.evalLines[i];
@@ -1350,7 +1053,6 @@ function updateEvaluationLines(lines, evaluations) {
     }
 }
 function updateEvaluationText(evaluation, scoreString) {
-    if (isMultiplayer) return;
     const { evalMain, evalText } = evaluationElements;
     if (!evalMain || !evalText) return;
     evalMain.textContent = evaluation !== undefined ? evaluation.toString() : '';
