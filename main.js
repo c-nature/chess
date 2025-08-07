@@ -5,10 +5,11 @@ const castlingSquares = ["g1", "g8", "c1", "c8"];
 let isWhiteTurn = true;
 let enPassantSquare = "blank";
 let allowMovement = true;
-let isOpponentWhite = false;
+let isEngineWhite = false;
 let selectedLevel = 1;
-let currentPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 let pgn = "";
+let viewedIndex = 0;
+
 const boardSquares = document.getElementsByClassName("square");
 const pieces = document.getElementsByClassName("piece");
 const piecesImages = document.getElementsByTagName("img");
@@ -17,7 +18,29 @@ setupBoardSquares();
 setupPieces();
 fillBoardSquaresArray();
 const startingPosition = chessBoard.innerHTML;
+newGame.addEventListener("click",function(){
+  if(isEngineWhite)
+    flipBoard();
+  enPassantSquare = "blank";
+  allowMovement = true;
+  isEngineWhite = false;
+  isWhiteTurn = true;
+  moves=[]; 
+  positionArray=[];
+  boardSquaresArray=[];
+  chessBoard.innerHTML = startingPosition;
+  setupBoardSquares();
+  setupPieces();
+  fillBoardSquaresArray();
+  switchSides.disabled = false;
+  level.disabled = false;
+  //---------------------------------
+  viewedIndex =0;
+  pgn ="";
+  pgnContainer.innerHTML = "";
+});
 
+switchSides.addEventListener("click",flipBoard);
 function flipBoard() {
   Array.from(document.getElementsByClassName("piece")).forEach(div=>{
     div.style.transform = div.style.transform === "rotate(180deg)" ? "rotate(0deg)" : "rotate(180deg)";
@@ -28,10 +51,15 @@ function flipBoard() {
      div.style.height = "20%";
   });
   chessBoard.style.transform = chessBoard.style.transform === "rotate(180deg)" ? "rotate(0deg)" : "rotate(180deg)";
-  isOpponentWhite = !isOpponentWhite;
- currentPosition = generateFEN(boardSquaresArray);
+  isEngineWhite = !isEngineWhite;
+  let currentPosition = generateFEN(boardSquaresArray);
+  if(isEngineWhite)
+    getBestMove(currentPosition,playBestMove);
 }
 
+level.addEventListener("change",function(){
+  selectedLevel = this.value;
+});
 
 function fillBoardSquaresArray() {
   const boardSquares = document.getElementsByClassName("square");
@@ -177,7 +205,7 @@ function generateFEN(boardSquares){
   fen+=" "+fiftyMovesRuleCount;
   let moveCount=Math.floor(moves.length/2)+1;
   fen+=" "+moveCount;
-  //console.log(fen);
+  console.log(fen);
   return fen;
 
 
@@ -222,13 +250,13 @@ function performCastling(
   destinationSquare.appendChild(piece);
   isWhiteTurn = !isWhiteTurn;
   updatePGN(startingSquareId,destinationSquareId,isWhiteTurn);
+
   updateBoardSquaresArray(
     startingSquareId,
     destinationSquareId,
     boardSquaresArray
   );
   let captured = false;
-
   makeMove(startingSquareId, destinationSquareId, "king", pieceColor, captured);
   checkForEndGame();
   return;
@@ -259,7 +287,6 @@ function performEnPassant(
   const destinationSquare = document.getElementById(destinationSquareId);
   destinationSquare.appendChild(piece);
   isWhiteTurn = !isWhiteTurn;
-
   updatePGN(startingSquareId,destinationSquareId,isWhiteTurn);
 
   updateBoardSquaresArray(
@@ -269,7 +296,6 @@ function performEnPassant(
   );
   let captured = true;
   makeMove(startingSquareId, destinationSquareId, "pawn", pieceColor, captured);
-
   enPassantSquare="blank";
   checkForEndGame();
   return;
@@ -315,11 +341,7 @@ function displayPromotionChoices(
   let promotionOptions = document.getElementsByClassName("promotionOption");
   for (let i = 0; i < promotionOptions.length; i++) {
     let pieceType = promotionOptions[i].classList[1];
-
-  
     promotionOptions[i].addEventListener("click", function () {
-      sendMove(startingSquareId,destinationSquareId,pieceType,pieceColor,captured,pieceType);
-
       performPromotion(
         pieceId,
         pieceType,
@@ -328,7 +350,6 @@ function displayPromotionChoices(
         destinationSquareId,
         captured
       );
-
     });
   }
 }
@@ -347,8 +368,6 @@ function createChessPiece(pieceType, color, pieceClass) {
   let img = document.createElement("img");
   img.src = pieceName;
   img.alt = pieceType;
-  if(isOpponentWhite)
-    pieceDiv.style.transform = "rotate(180deg)";
   pieceDiv.appendChild(img);
   return pieceDiv;
 }
@@ -426,18 +445,19 @@ function performPromotion(
       }
     }
   }
-
+  // while(destinationSquare.firstChild){
+  //   destinationSquare.removeChild(destinationSquare.firstChild);
+  // }
   destinationSquare.appendChild(piece);
   isWhiteTurn = !isWhiteTurn;
-
   updatePGN(startingSquareId,destinationSquareId,isWhiteTurn,pieceType);
+
   updateBoardSquaresArray(
     startingSquareId,
     destinationSquareId,
     boardSquaresArray,
     pieceType
   );
-
   makeMove(
     startingSquareId,
     destinationSquareId,
@@ -446,7 +466,6 @@ function performPromotion(
     captured,
     pieceType
   );
-
   checkForEndGame();
   return;
 }
@@ -487,7 +506,6 @@ function drag(ev) {
   const pieceColor = piece.getAttribute("color");
   const pieceType = piece.classList[1];
   const pieceId = piece.id;
-
   if (
     (isWhiteTurn && pieceColor == "white") ||
     (!isWhiteTurn && pieceColor == "black")
@@ -509,7 +527,7 @@ function drag(ev) {
   }
 }
 function drop(ev) {
-  let isEngineTurn =(isOpponentWhite && isWhiteTurn) || (!isOpponentWhite && !isWhiteTurn);
+  let isEngineTurn =(isEngineWhite && isWhiteTurn) || (!isEngineWhite && !isWhiteTurn);
   if(isEngineTurn) return;
   ev.preventDefault();
   const destinationSquare = ev.currentTarget;
@@ -517,9 +535,11 @@ function drop(ev) {
   let data = ev.dataTransfer.getData("text");
   let [pieceId, startingSquareId] = data.split("|");
   displayMove(startingSquareId,destinationSquareId);
+  highlightMove(positionArray.length);
+
 }
 
-function displayMove(startingSquareId,destinationSquareId,promotedTo="blank",fromServer=false){
+function displayMove(startingSquareId,destinationSquareId,promotedTo="blank"){
 
   const pieceObject = getPieceAtSquare(startingSquareId,boardSquaresArray);
   const piece = document.getElementById(pieceObject.pieceId);
@@ -557,9 +577,6 @@ function displayMove(startingSquareId,destinationSquareId,promotedTo="blank",fro
       castlingSquares.includes(destinationSquareId) &&
       !isCheck
     ) {
-      if(!fromServer)
-        sendMove(startingSquareId,destinationSquareId,pieceType,pieceColor,false);
-
       performCastling(
         piece,
         pieceColor,
@@ -567,8 +584,6 @@ function displayMove(startingSquareId,destinationSquareId,promotedTo="blank",fro
         destinationSquareId,
         boardSquaresArray
       );
- 
-
       return;
 
     }
@@ -582,8 +597,6 @@ function displayMove(startingSquareId,destinationSquareId,promotedTo="blank",fro
 
 
     if (pieceType == "pawn" && enPassantSquare == destinationSquareId) {
-      if(!fromServer)
-        sendMove(startingSquareId,destinationSquareId,pieceType,pieceColor,false);
       performEnPassant(
         piece,
         pieceColor,
@@ -612,7 +625,6 @@ function displayMove(startingSquareId,destinationSquareId,promotedTo="blank",fro
     }
     destinationSquare.appendChild(piece);
     isWhiteTurn = !isWhiteTurn;
-
     updatePGN(startingSquareId,destinationSquareId,isWhiteTurn);
 
     updateBoardSquaresArray(
@@ -621,7 +633,6 @@ function displayMove(startingSquareId,destinationSquareId,promotedTo="blank",fro
       boardSquaresArray
     );
     let captured = false;
-
     makeMove(
       startingSquareId,
       destinationSquareId,
@@ -629,10 +640,10 @@ function displayMove(startingSquareId,destinationSquareId,promotedTo="blank",fro
       pieceColor,
       captured
     );
-
-    if(!fromServer)
-    sendMove(startingSquareId,destinationSquareId,pieceType,pieceColor,captured);
-
+    if(moves.length == 1) {
+      level.disabled = true;
+      switchSides.disabled = true;
+    }
     checkForEndGame();
     return;
   }
@@ -666,7 +677,6 @@ function displayMove(startingSquareId,destinationSquareId,promotedTo="blank",fro
 
     destinationSquare.appendChild(piece);
     isWhiteTurn = !isWhiteTurn;
-
     updatePGN(startingSquareId,destinationSquareId,isWhiteTurn);
 
     updateBoardSquaresArray(
@@ -683,13 +693,45 @@ function displayMove(startingSquareId,destinationSquareId,promotedTo="blank",fro
       pieceColor,
       captured
     );
-
-    if(!fromServer)
-    sendMove(startingSquareId,destinationSquareId,pieceType,pieceColor,captured);
     checkForEndGame();
     return;
   }
 }
+
+
+function getBestMove(fen,callback) {
+   var engine = new Worker("./node_modules/stockfish/src/stockfish-nnue-16-single.js");
+   engine.onmessage = function (event) {
+    let message = event.data;
+    if(message.startsWith("bestmove")) {
+      let bestMove = event.data.split(" ")[1];
+      callback(bestMove);
+      engine.terminate();
+    }
+   };
+   engine.postMessage("position fen "+fen);
+   engine.postMessage(`go depth ${selectedLevel}`);
+}
+
+function playBestMove(bestMove) {
+  let startingSquareId = bestMove.substring(0,2);
+  let destinationSquareId = bestMove.substring(2,4);
+  let promotedTo = "";
+  if(bestMove.length === 5) {
+    promotedTo = bestMove.substring(4,5);
+    let pieceMap = {
+      "q": "queen",
+      "r": "rook",
+      "n": "knight",
+      "b": "bishop"
+    };
+    promotedTo = pieceMap[promotedTo];
+  }
+  displayMove(startingSquareId,destinationSquareId,promotedTo);
+  highlightMove(positionArray.length);
+
+}
+
 
 function getPossibleMoves(startingSquareId, piece, boardSquaresArray) {
   const pieceColor = piece.pieceColor;
@@ -1374,10 +1416,11 @@ function isMoveValidAgainstCheck(
 }
 function checkForEndGame(){
   checkForCheckMateAndStaleMate();
-  currentPosition = generateFEN(boardSquaresArray);
-  sendFen(currentPosition);
-  sendPgn(pgn);
+  let currentPosition = generateFEN(boardSquaresArray);
+  if((isEngineWhite && isWhiteTurn)||(!isEngineWhite && !isWhiteTurn))
+    getBestMove(currentPosition,playBestMove);
   positionArray.push(currentPosition);
+  viewedIndex  = positionArray.length -1;
   let threeFoldRepetition = isThreefoldRepetition();
   let insufficientMaterial = hasInsufficientMaterial(currentPosition);
   let fiftyMovesRuleCount = currentPosition.split(" ")[4];
@@ -1386,7 +1429,7 @@ function checkForEndGame(){
   if(isDraw){
     allowMovement=false;
     showAlert("Draw");
-    sendResign("");
+
     document.addEventListener('dragstart', function(event) {
         event.preventDefault();
     });
@@ -1396,7 +1439,6 @@ function checkForEndGame(){
     
   }
 }
-
 
 function checkForCheckMateAndStaleMate() {
   let kingSquare = isWhiteTurn
@@ -1412,18 +1454,12 @@ function checkForCheckMateAndStaleMate() {
   let possibleMoves = getAllPossibleMoves(boardSquaresArrayCopy, pieceColor);
   if (possibleMoves.length > 0) return;
   let message = "";
-  let blackPlayer = isOpponentWhite?  player1.innerText : player2.innerText;
-  let whitePlayer = isOpponentWhite?  player2.innerText : player1.innerText;
-
-  if(kingIsCheck) 
-  isWhiteTurn ? (message = `${blackPlayer} Wins!`) : (message =  `${whitePlayer} Wins!`);
+  if(kingIsCheck)
+  isWhiteTurn ? (message = "Black Wins!") : (message = "White Wins!");
   else
   message="Draw";
-  message === "Draw" ? sendResign("") : sendResign(message.slice(0,-5).trim());
-
   showAlert(message);
 }
-
 function getFiftyMovesRuleCount(){
   let count=0;
   for (let i=0;i<moves.length;i++){
@@ -1522,228 +1558,285 @@ function getAllPossibleMoves(squaresArray, color) {
       return legalSquares;
     });
 }
-
- resignButton.addEventListener("click",()=>{
-  allowMovement = false;
-  showAlert(player2.innerText+" Wins!");
-  sendResign(player2.innerText);
- });
-
- function clearBoard() {
-  const squares = document.querySelectorAll('.square');
-  squares.forEach(square => {
-    square.innerHTML = ''; // Clear all pieces from the squares
-  });
-}
-
-function loadPositionFromFEN(fen) {
-  const pieceMap = {
-    'p': 'pawn',
-    'r': 'rook',
-    'n': 'knight',
-    'b': 'bishop',
-    'q': 'queen',
-    'k': 'king',
-    'P': 'pawn',
-    'R': 'rook',
-    'N': 'knight',
-    'B': 'bishop',
-    'Q': 'queen',
-    'K': 'king'
-  };
-
-  const rows = fen.split(' ')[0].split('/');
-  const board = document.getElementById('board'); // Assuming your board has an id of 'board'
-  
-  clearBoard();
-
-  rows.forEach((row, rowIndex) => {
-    let columnIndex = 0;
-    for (const char of row) {
-      if (isNaN(char)) { // It's a piece
-        const pieceType = pieceMap[char];
-        const color = char === char.toUpperCase() ? 'white' : 'black';
-        const squareId = String.fromCharCode(97 + columnIndex) + (8 - rowIndex);
-        
-        const piece = createChessPiece(pieceType, color, "piece") ;
-       
-        const square = document.getElementById(squareId);
-        square.appendChild(piece);
-
-        columnIndex++;
-      } else {
-        columnIndex += parseInt(char); // It's a number of empty squares
-      }
-    }
-  });
-  setupPieces();
-  boardSquaresArray = [];
-  fillBoardSquaresArray();
-}
-
-function convertToStandardNotation(move){
-  let standardMove = "";
-  let boardSquaresArrayCopy = deepCopyArray(boardSquaresArray);
-  
-  {
-    let from = move.substring(0,2);
-    let to =  move.substring(2,4);
-    let promotion = move.length>4? move.charAt(4) : null;
-    let fromSquare = boardSquaresArrayCopy.find(square=>square.squareId===from);
-    let toSquare = getPieceAtSquare(to,boardSquaresArrayCopy);
-    if(fromSquare&&toSquare) {
-      let fromPiece = fromSquare.pieceType;
-      switch(fromPiece.toLowerCase()) {
-        case "pawn":
-          fromPiece="";
-          break;
-          case "knight":
-            fromPiece="N";
-            break;
-          case "bishop":
-            fromPiece="B";
-            break;
-          case "rook":
-            fromPiece="R";
-            break;   
-          case "queen":
-            fromPiece="Q";
-            break;  
-          case "king":
-            fromPiece="K";
-            break;
-      }
-      let captureSymbol="";
-      if((toSquare.pieceType !=="blank") || (toSquare.pieceType=="blank" && fromSquare.pieceType.toLowerCase()==="pawn" && from.charAt(0)!=to.charAt(0))){
-        captureSymbol="x";
-        if(fromSquare.pieceType.toLowerCase()==="pawn") {
-          fromPiece = from.charAt(0);
-        }
-      }
-      standardMove = `${fromPiece}${captureSymbol}${to}`;
-      if(promotion){
-        switch(promotion.toLowerCase()){
-          case "q":
-          standardMove+="=Q";
-          break;
-          case "r":
-            standardMove+="=R";
-            break;
-          case "b":
-            standardMove+="=B";
-            break;
-          case "n":
-            standardMove+="=N";
-            break;  
-        }
-      }
-      let kingColor = fromSquare.pieceColor == "white" ? "black":"white";
-      let kingSquareId = getKingSquare(kingColor,boardSquaresArrayCopy);
-      updateBoardSquaresArray(from,to,boardSquaresArrayCopy);
-
-      if(isKingInCheck(kingSquareId,kingColor,boardSquaresArrayCopy)) {
-        standardMove +="+";
-      }
-      if((standardMove =="Kg8" && fromSquare.squareId=="e8")||(standardMove == "Kg1" && fromSquare.squareId=="e1")) {
-        if(standardMove ==="Kg8")
-         updateBoardSquaresArray("h8","f8",boardSquaresArrayCopy);
-        else
-         updateBoardSquaresArray("h1","f1",boardSquaresArrayCopy);
-         standardMove = "O-O";
-
-      }
-      if((standardMove =="Kc8" && fromSquare.squareId=="e8")||(standardMove == "Kc1" && fromSquare.squareId=="e1")) {
-        if(standardMove ==="Kc8")
-         updateBoardSquaresArray("a8","d8",boardSquaresArrayCopy);
-        else
-         updateBoardSquaresArray("a1","d1",boardSquaresArrayCopy);
-        standardMove = "O-O-O";
-      }
-    
-    }
-  }
-  return standardMove.trim();
-}
-
-function getKingSquare(color,squareArray) {
-  let kingSquare = squareArray.find(square=>square.pieceType.toLowerCase()==="king" && square.pieceColor === color);
-  return kingSquare ? kingSquare.squareId : null;
-}
-
-function updatePGN(startingSquareId,destinationSquareId,whiteTurn,promotedTo="") {
-  let move = startingSquareId+destinationSquareId+promotedTo;
-  let standardMove = convertToStandardNotation(move);
-  let moveNumber = moves.length/2+1;
-  if(whiteTurn) {
-    let newMove = createMoveElement(standardMove,"playerMove");
-    pgnContainer.appendChild(newMove);
-    pgn+=" "+standardMove;
-  } else {
-    let number = createMoveElement(moveNumber,"moveNumber");
-    let newMove = createMoveElement(standardMove,"playerMove");
-    pgnContainer.appendChild(number);
-    pgnContainer.appendChild(newMove);
-    pgn+=" "+moveNumber+". "+standardMove;
-
-  }
-  pgnContainer.scrollTop = pgnContainer.scrollHeight;
-
-}
-
-function createMoveElement(standardMove,elementClass) {
-  let playerMove = document.createElement("div");
-  playerMove.classList.add(elementClass);
-  playerMove.innerHTML = standardMove;
-  return playerMove;
-}
-
-
-function recreateHTMLFromPGN(pgn) {
-  pgnContainer.innerHTML = "";
-  let moveArray = pgn.trim().split(/\s+/);
-  let moveNumber = 1;
-  for(let i=0;i<moveArray.length;i++) {
-    if(moveArray[i].includes(".")) {
-      let number = createMoveElement(moveNumber,"moveNumber");
-      pgnContainer.appendChild(number);
-      moveNumber++;
-    } else {
-      let newMove = createMoveElement(moveArray[i],"playerMove");
-      pgnContainer.appendChild(newMove);
-    }
-  }
-  pgnContainer.scrollTop = pgnContainer.scrollHeight;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 function showAlert(message) {
   const alert = document.getElementById("alert");
   alert.innerHTML = message;
   alert.style.display = "flex";
-  if(isOpponentWhite)
+  if(isEngineWhite)
    alert.style.transform = alert.style.transform ='rotate(180deg)' ;
 
   setTimeout(function () {
     alert.style.display = "none";
   }, 3000);
 }
+
+//--------------- Code for adding move list ----------------------------
+
+function updatePGN(startingSquareId,destinationSquareId,whiteTurn,promotedTo="") {
+    let move = startingSquareId+destinationSquareId+promotedTo;
+    let standardMove = convertToStandardNotation(move);
+    let moveNumber = moves.length/2+1;
+    if(whiteTurn) {
+      let newMove = createMoveElement(standardMove,"playerMove");
+      pgnContainer.appendChild(newMove);
+      pgn+=" "+standardMove;
+    } else {
+      let number = createMoveElement(moveNumber,"moveNumber");
+      let newMove = createMoveElement(standardMove,"playerMove");
+      pgnContainer.appendChild(number);
+      pgnContainer.appendChild(newMove);
+      pgn+=" "+moveNumber+". "+standardMove;
+    }
+    pgnContainer.scrollTop = pgnContainer.scrollHeight;
+  }
+
+  function createMoveElement(standardMove,elementClass) {
+    let playerMove = document.createElement("div");
+    let moveNumber = moves.length;
+    playerMove.classList.add(elementClass);
+    if(elementClass == "playerMove") {
+      playerMove.id = moveNumber;
+      playerMove.addEventListener("click",()=>{
+        viewedIndex = parseInt(playerMove.id)+1;
+        highlightMove(viewedIndex);
+        updatePosition();
+        (viewedIndex != positionArray.length-1) ? 
+         allowMovement = false : allowMovement = true;
+      });
+    }
+  
+    playerMove.innerHTML = standardMove;
+    return playerMove;
+  }
+  
+  function recreateHTMLFromPGN(pgn) {
+    if(pgn === "") return;
+    pgnContainer.innerHTML = "";
+    let moveArray = pgn.trim().split(/\s+/);
+    let moveNumber = 1;
+    let moveId =-1;
+    for(let i=0;i<moveArray.length;i++) {
+      if(moveArray[i].includes(".")) {
+        let number = createMoveElement(moveNumber,"moveNumber");
+        pgnContainer.appendChild(number);
+        moveNumber++;
+      } else {
+        let newMove = createMoveElement(moveArray[i],"playerMove");
+        moveId++;
+        newMove.id = moveId;
+        pgnContainer.appendChild(newMove);
+      }
+    }
+    pgnContainer.scrollTop = pgnContainer.scrollHeight;
+  }
+
+  
+stepBackward.addEventListener("click",()=>{
+    moveBackward();
+  });
+  stepForward.addEventListener("click",()=>{
+    moveForward();
+  });
+  fastBackward.addEventListener("click",()=>{
+    moveToStart();
+  });
+  fastForward.addEventListener("click",()=>{
+    moveToEnd();
+  });
+  
+  function moveBackward() {
+    if(viewedIndex>0) {
+      viewedIndex--;
+      viewedIndex>0 ?  highlightMove(viewedIndex) : {};
+      allowMovement = false;
+    }
+    updatePosition();
+  }
+  
+  function moveForward() {
+    if(viewedIndex <= positionArray.length-1) {
+      viewedIndex++;
+      highlightMove(viewedIndex);
+      updatePosition();
+    }
+    if(viewedIndex === positionArray.length-1)
+      allowMovement = true;
+  }
+  
+  function moveToStart() {
+    if(viewedIndex >=-1) {
+      viewedIndex =1;
+      highlightMove(1);
+      updatePosition();
+    }
+    allowMovement = false;
+  }
+  
+  function moveToEnd() {
+    if(viewedIndex>=0) {
+      viewedIndex = positionArray.length;
+      updatePosition();
+    }
+    if(viewedIndex>0)
+      highlightMove(viewedIndex);
+    allowMovement = true;
+  }
+  
+  function highlightMove(viewedIndex) {
+    let moveElement = document.getElementById(viewedIndex-1);
+    document.querySelectorAll(".highlighted").forEach(element=>{
+      element.classList.remove("highlighted");
+    });
+    moveElement.classList.add("highlighted");
+  }
+  
+  function updatePosition() {
+    viewedFEN = positionArray[viewedIndex-1];
+    loadPositionFromFEN(viewedFEN);
+  }
+  
+  function loadPositionFromFEN(fen) {
+    const pieceMap = {
+      'p': 'pawn',
+      'r': 'rook',
+      'n': 'knight',
+      'b': 'bishop',
+      'q': 'queen',
+      'k': 'king',
+      'P': 'pawn',
+      'R': 'rook',
+      'N': 'knight',
+      'B': 'bishop',
+      'Q': 'queen',
+      'K': 'king'
+    };
+  
+    const rows = fen.split(' ')[0].split('/');
+    const board = document.getElementById('board'); // Assuming your board has an id of 'board'
+    
+    clearBoard();
+  
+    rows.forEach((row, rowIndex) => {
+      let columnIndex = 0;
+      for (const char of row) {
+        if (isNaN(char)) { // It's a piece
+          const pieceType = pieceMap[char];
+          const color = char === char.toUpperCase() ? 'white' : 'black';
+          const squareId = String.fromCharCode(97 + columnIndex) + (8 - rowIndex);
+          
+          const piece = createChessPiece(pieceType, color, "piece") ;
+         
+          const square = document.getElementById(squareId);
+          square.appendChild(piece);
+  
+          columnIndex++;
+        } else {
+          columnIndex += parseInt(char); // It's a number of empty squares
+        }
+      }
+    });
+    setupPieces();
+    boardSquaresArray = [];
+    fillBoardSquaresArray();
+
+    if(isEngineWhite)
+      Array.from(document.getElementsByClassName("piece")).forEach(div=>{
+        div.style.transform = div.style.transform === "rotate(180deg)" ? "rotate(0deg)" : "rotate(180deg)";
+      });
+  }
+  
+  function convertToStandardNotation(move){
+    let standardMove = "";
+    let boardSquaresArrayCopy = deepCopyArray(boardSquaresArray);
+    
+    {
+      let from = move.substring(0,2);
+      let to =  move.substring(2,4);
+      let promotion = move.length>4? move.charAt(4) : null;
+      let fromSquare = boardSquaresArrayCopy.find(square=>square.squareId===from);
+      let toSquare = getPieceAtSquare(to,boardSquaresArrayCopy);
+      if(fromSquare&&toSquare) {
+        let fromPiece = fromSquare.pieceType;
+        switch(fromPiece.toLowerCase()) {
+          case "pawn":
+            fromPiece="";
+            break;
+            case "knight":
+              fromPiece="N";
+              break;
+            case "bishop":
+              fromPiece="B";
+              break;
+            case "rook":
+              fromPiece="R";
+              break;   
+            case "queen":
+              fromPiece="Q";
+              break;  
+            case "king":
+              fromPiece="K";
+              break;
+        }
+        let captureSymbol="";
+        if((toSquare.pieceType !=="blank") || (toSquare.pieceType=="blank" && fromSquare.pieceType.toLowerCase()==="pawn" && from.charAt(0)!=to.charAt(0))){
+          captureSymbol="x";
+          if(fromSquare.pieceType.toLowerCase()==="pawn") {
+            fromPiece = from.charAt(0);
+          }
+        }
+        standardMove = `${fromPiece}${captureSymbol}${to}`;
+        if(promotion){
+          switch(promotion.toLowerCase()){
+            case "q":
+            standardMove+="=Q";
+            break;
+            case "r":
+              standardMove+="=R";
+              break;
+            case "b":
+              standardMove+="=B";
+              break;
+            case "n":
+              standardMove+="=N";
+              break;  
+          }
+        }
+        let kingColor = fromSquare.pieceColor == "white" ? "black":"white";
+        let kingSquareId = getKingSquare(kingColor,boardSquaresArrayCopy);
+        updateBoardSquaresArray(from,to,boardSquaresArrayCopy);
+  
+        if(isKingInCheck(kingSquareId,kingColor,boardSquaresArrayCopy)) {
+          standardMove +="+";
+        }
+        if((standardMove =="Kg8" && fromSquare.squareId=="e8")||(standardMove == "Kg1" && fromSquare.squareId=="e1")) {
+          if(standardMove ==="Kg8")
+           updateBoardSquaresArray("h8","f8",boardSquaresArrayCopy);
+          else
+           updateBoardSquaresArray("h1","f1",boardSquaresArrayCopy);
+           standardMove = "O-O";
+  
+        }
+        if((standardMove =="Kc8" && fromSquare.squareId=="e8")||(standardMove == "Kc1" && fromSquare.squareId=="e1")) {
+          if(standardMove ==="Kc8")
+           updateBoardSquaresArray("a8","d8",boardSquaresArrayCopy);
+          else
+           updateBoardSquaresArray("a1","d1",boardSquaresArrayCopy);
+          standardMove = "O-O-O";
+        }
+      
+      }
+    }
+    return standardMove.trim();
+  }
+  function getKingSquare(color,squareArray) {
+    let kingSquare = squareArray.find(square=>square.pieceType.toLowerCase()==="king" && square.pieceColor === color);
+    return kingSquare ? kingSquare.squareId : null;
+  }
+
+  function clearBoard() {
+    const squares = document.querySelectorAll('.square');
+    squares.forEach(square => {
+      square.innerHTML = ''; // Clear all pieces from the squares
+    });
+  }
+  
