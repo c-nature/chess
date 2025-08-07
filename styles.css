@@ -1,278 +1,321 @@
 body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 90vh;
-  background-color: #f3f3f3;
-  }
+    /* Removed flex properties from body to prevent layout conflicts */
+    /* Changed display back to block for better initial behavior */
+    display: block;
+    min-height: 100vh; /* Use min-height instead of height for better responsiveness */
+    margin: 0;
+    background-color: #f0f0f0; /* Added a background for clarity */
+    font-family: sans-serif; /* Added a default font */
+    /* Centering the main content container */
+    display: flex; /* Re-added flex to body to center its single child (.container) */
+    align-items: center; /* Center vertically */
+    justify-content: center; /* Center horizontally */
+}
+
 .chessBoard {
-  width:80vw;
-  height: 80vw;
-  margin: 0 auto;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
+    /* Fixed size for desktop, will be responsive via media query */
+    width: 600px;
+    height: 600px;
+    border: 2px solid #333; /* A border helps visualize the board */
+    display: grid; /* Use CSS Grid for the chessboard layout */
+    grid-template-columns: repeat(8, 1fr); /* 8 equal columns */
+    grid-template-rows: repeat(8, 1fr);    /* 8 equal rows */
+    box-sizing: content-box; /* Ensure padding/border doesn't affect overall size */
 }
 
 .square {
-  width:12.5%;
-  height: 12.5%;
-  float: left;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-}
-.white {
-  background-color: #f0d9b5;
-}
-.black {
-  background-color: #b58863;
-}
-.coordinate {
-  height:auto;
-  display:flex;
-  bottom: 4%;
-  left:4%;
-  position: absolute;
-  font-size: 12px;
-  font-weight: bold;
-  font-family: Verdana, Geneva, Tahoma, sans-serif;
-}
-.rank {
-  top:4%;
-  right:4%;
-  left:auto;
-}
-.whiteText {
-  color:#f0d9b5;
-}
-.blackText {
-  color:#b58863;
-}
-.piece {
-  width:100%;
-  z-index: 1;
-  cursor: pointer;
-}
-.piece img {
-  max-width: 100%;
-  width:100%;
-  height: auto;
-}
-
-#alert {
-  position: absolute;
-  color: whitesmoke;
-  width: 50vw;
-  height: 12%;
-  text-align: center;
-  align-content: center;
-  justify-content: center;
-  font-size: 35px;
-  font-weight: bold;
-  z-index: 1000;
-  display: none; 
-  background: #008080bf;
-  border-radius: 5px;
-  align-items: center;
-}
-
-.promotionOption{
-  border-radius: 50%;
-  background-color: darkgray;
-  transition: transform 0.2s;
-  position: absolute;
-  z-index: 1000;
-}
-.promotionOption:hover {
-  cursor: pointer;
-  border-radius: 0%;
-  background-color:#539B0C;
-  width: 100%;
-}
-.promotionOption img {
-  max-width: 100%;
-  width: 100%;
-  height: auto;
-}
-
-.container{
-  display: none;
-  flex-wrap: wrap-reverse;
-  align-items: center;
-  margin-right: 20px;
-}
-.buttonContainer{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 10vw;
-  margin: 20px 0px 0px 20px;
-}
-.buttonContainer button {
-  width: 120px;
-  height: 40px;
-  border: none;
-  cursor: pointer;
-  border-radius: 5px;
-  background-color: rgb(87,64,64);
-  color: white;
-  font-weight: bold;
-  margin: 10px;
-}
-.buttonContainer select {
-  width: 120px;
-  height: 40px;
-  background-color: whitesmoke;
-}
-div:has(>#levelLabel) {
-  margin-bottom: 5px;
-}
-#playerInfo {
-  display: flex;
-  width: 50vw;
-  height: 80px;
-  align-items: center;
-  justify-content: center;
-}
-#join {
-  display: flex;
-  justify-content: center;
-}
-#join input {
-  outline: none;
-  height: 30px;
-  padding: 5px;
-  border-color: lightgray;
-}
-#join button {
-  border: none;
-  height: 45px;
-  width: 120px;
-  background-color: #f3f3f3;
-  border-radius: 5px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 6px 6px 10px 0px rgba(0,0,0,0.25);
-}
-#gamePlayerInfo {
-  display: none;
-  background-color: white;
-  border-radius: 5px;
-  flex-direction: column;
-  width: 27vw;
-  height: 32vh;
-  padding-top: 5px;
-  padding-bottom: 5px;
-  box-shadow: 6px 6px 10px 0px rgba(0,0,0,0.2);
-}
-.player {
-  display: flex;
-  align-items: center;
-  color: rgb(77,77,77);
-}
-#player1,#player2 {
-  margin: 10px;
-}
-.iconContainer {
-  display: flex;
-  justify-content: center;
-  cursor: pointer;
-}
-#counter{
-  display: flex;
-  justify-content: center;
-  font-size: 40px;
-  font-weight: bold;
-}
-
-#pgnContainer {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  overflow-y: auto;
-  font-size: 14px;
-  color:rgb(94,92,92);
-  height: 100%;
-  margin-bottom: 15px;
-}
-.moveNumber {
-  display: flex;
-  flex: 0 0 16.666%;
-  background-color: #f7f6f5;
-  justify-content: center;
-  align-items: center;
-  height: 20px;
-}
-.playerMove {
-  display: flex;
-  flex: 0 0 35%;
-  padding-left: 10px;
-  align-items: center;
-  height: 20px;
-  cursor: pointer;
-}
-
-.highlighted{
-  background-color: rgb(208,228,245);
-}
-#moveNavigation{
-  display: flex;
-  justify-content: space-between;
-  padding-left: 20px;
-  padding-right: 20px;
-  background-color:#f7f6f5 ;
-  height: 10vh;
-}
-
-.navigation{
-  display: flex;
-  width: 25%;
-  height: 100%;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-}
-
-.navigation:hover{
-  background-color: rgb(98,153,36);
-  color:whitesmoke;
-}
-
-
-
-
-@media (min-width:600px) {
-  .chessBoard {
-      width:600px;
-      height: 600px;
-  }
-  #alert {
-    width:450px;
-    height: 80px;
-  }
-}
-@media (max-width:600px) {
-  .coordinate {
-    font-size: 8px;
-  }
-  #alert {
-    font-size: 20px;
-  }
-  button {
-    font-size: 10px;
-  }
-  .buttonContainer {
-    flex-direction: row;
-    align-items: last baseline;
+    display: flex;
+    align-items: center;
     justify-content: center;
-    width: 80vw;
-  }
-  .buttonContainer button, .buttonContainer select {
-    width: 20vw;
-    margin-right: 5px;
-  }
+    position: relative; /* For absolute positioning of coordinates/pieces */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    min-width: 0;
+    min-height: 0;
+}
+
+.white {
+    background-color: #f0d9b5; /* Light square color */
+}
+
+.black {
+    background-color: #b58863; /* Dark square color */
+}
+
+.piece {
+    width: 100%; /* Ensure piece takes full width of square */
+    height: 100%; /* Ensure piece takes full height of square */
+    display: flex; /* Use flexbox for piece to center image */
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    cursor: grab; /* Change cursor to grab for interactivity */
+}
+
+.piece img {
+    max-width: 90%; /* Make images fit within the square, with a little padding */
+    max-height: 90%; /* Ensure images fit vertically */
+    width: auto; /* Allow width to adjust based on max-height */
+    height: auto; /* Allow height to adjust based on max-width */
+    object-fit: contain; /* Maintain aspect ratio and fit within content box */
+}
+
+
+.coordinate {
+    position: absolute;
+    font-weight: bold;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    z-index: 1; /* Ensure coordinates are above pieces if overlapping */
+}
+
+.coordinate.rank {
+    top: 4%; /* Adjust as needed */
+    right: 4%; /* Adjust as needed */
+    left: auto; /* Ensure it sticks to the right */
+    bottom: auto; /* Ensure it sticks to the top */
+    color: black; /* Set a default color, overridden by whiteText/blackText if needed */
+}
+
+.coordinate.file {
+    bottom: 4%; /* Adjust as needed */
+    left: 4%; /* Adjust as needed */
+    top: auto; /* Ensure it sticks to the bottom */
+    right: auto; /* Ensure it sticks to the left */
+    color: black; /* Set a default color, overridden by whiteText/blackText if needed */
+}
+
+.whiteText {
+    color: white; /* Applies to coordinate text that should be white */
+}
+
+.blackText {
+    color: black; /* Applies to coordinate text that should be black */
+}
+
+/* Styles for Pawn Promotion UI */
+.promotion-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent black overlay */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100; /* Ensure it's on top of everything */
+    visibility: hidden; /* Hidden by default */
+    opacity: 0;
+    transition: visibility 0s, opacity 0.3s ease-in-out;
+}
+
+.promotion-overlay.active {
+    visibility: visible;
+    opacity: 1;
+}
+
+.promotion-choices {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    display: flex;
+    gap: 15px; /* Space between choices */
+    flex-wrap: wrap; /* Allow choices to wrap on smaller screens */
+    justify-content: center;
+}
+
+.promotion-choice {
+    width: 100px; /* Fixed size for each choice button */
+    height: 100px;
+    background-color: #eee;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.promotion-choice:hover {
+    background-color: #ddd;
+    transform: translateY(-3px);
+}
+
+.promotion-choice img {
+    max-width: 80%; /* Make piece images fit within the choice button */
+    max-height: 80%;
+    object-fit: contain;
+}
+
+
+/* Media queries for responsiveness */
+@media (max-width: 600px) {
+    .chessBoard {
+        width: 90vw; /* Use vw for smaller screens */
+        height: 90vw;
+    }
+    .coordinate {
+        font-size: 8px; /* Smaller font for coordinates on small screens */
+    }
+    .promotion-choice {
+        width: 70px; /* Smaller choice buttons on small screens */
+        height: 70px;
+    }
+}
+
+/* This media query was problematic in your original code; let's simplify */
+@media (min-width: 601px) { /* Apply desktop styles above 600px */
+    .coordinate {
+        font-size: 12px; /* Larger font for coordinates on desktop */
+    }
+}
+
+/* --- New and Modified Styles for Layout and Eval Bar --- */
+.container {
+    display: flex; /* Use flexbox to lay out chessboard and eval bar side-by-side */
+    align-items: flex-start; /* Align items to the top, so eval bar doesn't center vertically */
+    gap: 20px; /* Add some space between the board and the eval bar */
+    /* Remove any fixed width/height to allow flex to manage it */
+}
+
+#evalBar {
+    background-color: rgb(255,255,255);
+    width: 30px; /* Set a fixed width for the eval bar */
+    height: 600px; /* Match the height of the chessboard on desktop */
+    display: flex;
+    flex-direction: column; /* Stack children vertically */
+    justify-content: flex-end; /* Push the black bar to the bottom initially */
+    align-items: center; /* Center content horizontally */
+    position: relative;
+    border-radius: 3px;
+    overflow: hidden; /* Hide anything outside the bar */
+}
+
+#evalBar::after{
+    content: "";
+    display: block;
+    position: absolute; /* Corrected 'absolut' to 'absolute' */
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    box-shadow: 0 0 5px rgba(0,0,0,0.7) inset; /* Corrected rgba alpha value */
+    border-radius: 3px;
+}
+
+#evalBar .blackBar {
+    width: 100%;
+    height: 35%; /* This will be dynamically changed by JS for evaluation */
+    background-color: #656;
+    transition: height 1s ease-in-out; /* Corrected 'hieght' to 'height' */
+    position: absolute; /* Position relative to #evalBar */
+    bottom: 0; /* Anchor to the bottom */
+    border-radius: 3px;
+}
+
+.zero {
+    width: 100%;
+    opacity: 1;
+    border-bottom: 2px solid rgba(214, 79, 0, 0.8); /* Adjusted border thickness and opacity for visibility */
+    position:absolute;
+    top: 50%; /* Position at the vertical center of the eval bar */
+    transform: translateY(-50%); /* Adjust for its own height to truly center */
+    height: auto; /* Remove fixed height */
+    z-index: 2; /* Ensure it's above the blackBar if needed */
+}
+
+.evalNum {
+    width: 100%;
+    opacity: 1;
+    position: absolute;
+    top: 5px; /* Position at the top of the eval bar */
+    height: auto; /* Remove fixed height */
+    font-size: 0.8rem; /* Increased font size for readability */
+    font-weight: bolder;
+    text-align: center;
+    color: #d18232;
+    z-index: 2; /* Ensure it's above the blackBar if needed */
+}
+
+@media (max-width: 600px){ /* Adjusted media query for smaller screens */
+    .container {
+        flex-direction: column; /* Stack board and eval bar vertically on small screens */
+        align-items: center; /* Center items when stacked */
+    }
+    #evalBar {
+        width: 90vw; /* Make eval bar span width of screen */
+        height: 30px; /* Make it short and horizontal */
+        flex-direction: row; /* Lay out children horizontally */
+        justify-content: center;
+    }
+    #evalBar .blackBar {
+        height: 100%;
+        width: 35%; /* Adjust for horizontal bar */
+        left: 0; /* Anchor to the left */
+        top: 0;
+    }
+    .zero {
+        height: 100%;
+        width: 2px; /* Make it a vertical line */
+        border-bottom: none; /* Remove horizontal border */
+        border-right: 2px solid rgba(214, 79, 0, 0.8); /* Add vertical border */
+        left: 50%; /* Center vertically */
+        top: 0;
+        transform: translateX(-50%);
+    }
+    .evalNum {
+        top: auto; /* Remove top positioning */
+        bottom: 5px; /* Position at the bottom of the horizontal bar */
+        font-size: 0.6rem;
+    }
+}
+
+@media (min-width: 601px){ /* Apply desktop styles above 600px */
+    #evalBar {
+        height: 600px; /* Match chessboard height */
+    }
+}
+#topLines {
+    display: flex;
+    flex-directoin: column;
+    margin-top: 10px;
+    border-radius: 4px;
+    border-radius: 4px;
+    border: 1px solid lightgray;
+    background-color: whitesmoke;
+    border-spacing: 0px;
+    max-width: 80vw;
+    overflow: hidden;
+}
+
+#topLines td {
+    border-collapse: collapse;
+    border: 1px solid lightgray;
+    padding: 8px;
+    font-size: 17px;
+    white-space: nowrap;
+    width: 100%;
+    text-align: left;
+}
+
+#topLines th {
+    padding: 8px;
+    text-align: left;
+}
+
+#topLines td, #topLines th {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 500px;  
+}
+#line1, #line2, #line3{
+    min-width: 500px;
+}
+#eval1, #eval2, #eval3{
+    min-width: 40px;
+}
+tr{
+    height: 40px;
 }

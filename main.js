@@ -17,9 +17,11 @@ let hasBlackQueensideRookMoved = false; // a8 rook
 
 // Global Stockfish worker instance - CRITICAL: Initialize only once
 let stockfishWorker = null;
-let evaluations = []; // Moved to global scope to persist between messages
-let lines = []; // Array to store PV lines for each multipv
-let scoreStrings = []; // Array to store scoreString per multipv
+let evaluations = [null, null, null]; // Array to store evaluations for multipv
+let lines = ["", "", ""]; // Array to store PV lines for each multipv
+let scoreStrings = [null, null, null]; // Array to store scoreString per multipv
+let isAwaitingEvaluation = false; // Flag to prevent sending multiple commands
+let isEngineReady = false; // Flag to check if the engine is ready
 
 const boardSquares = document.getElementsByClassName('square');
 const pieces = document.getElementsByClassName('piece');
@@ -740,9 +742,7 @@ function finalizeMove() {
 
     const currentFEN = generateFEN(board);
     console.log("Generated FEN:", currentFEN);
-    getEvaluation(currentFEN, function(lines, evaluations, scoreStrings) {
-        displayEvaluation(lines, evaluations, scoreStrings[0]);
-    });
+    getEvaluation(currentFEN);
 }
 
 /**
@@ -806,72 +806,99 @@ function generateFEN(boardState) {
 /**
  * Gets evaluation from Stockfish worker.
  * @param {string} fen The FEN string of the current position.
- * @param {function} callback Function to call with the evaluation results.
  */
-function getEvaluation(fen, callback) {
+function getEvaluation(fen) {
+    // A helper function to send position and start commands
+    const startAnalysis = () => {
+        stockfishWorker.postMessage("position fen " + fen);
+        stockfishWorker.postMessage("go depth 15");
+    };
+
+    // If we have a worker and are awaiting a response, stop it before sending a new command.
+    if (stockfishWorker && isAwaitingEvaluation) {
+        stockfishWorker.postMessage("stop");
+    }
+
+    // Reset evaluation state and UI
+    isAwaitingEvaluation = true;
+    evaluations = [null, null, null];
+    lines = ["", "", ""];
+    scoreStrings = [null, null, null];
+    displayEvaluation(lines, evaluations, "Thinking...");
+
     if (!stockfishWorker) {
         console.log("Creating new worker with path:", "./lib/stockfish-nnue-16.js");
         stockfishWorker = new Worker("./lib/stockfish-nnue-16.js");
         stockfishWorker.onmessage = function (event) {
             let message = event.data;
-            console.log("Stockfish Raw Message:", message);
+            // console.log("Stockfish Raw Message:", message);
 
-            if (message.startsWith("info depth 10")) {
-                let multipvIndex = message.indexOf("multipv");
-                if (multipvIndex !== -1) {
-                    let multipvString = message.slice(multipvIndex).split(" ")[1];
-                    let multipv = parseInt(multipvString) || 1; // Default to 1 if parsing fails
+            if (message === "readyok") {
+                isEngineReady = true;
+                // Once the engine is ready, send the initial commands.
+                stockfishWorker.postMessage("setoption name multipv value 3");
+                startAnalysis();
+                return;
+            }
 
-                    // Ensure arrays are initialized with 3 slots
-                    while (evaluations.length < 3) evaluations.push(null);
-                    while (lines.length < 3) lines.push("");
-                    while (scoreStrings.length < 3) scoreStrings.push(null);
+            if (!isEngineReady) return;
 
-                    let scoreIndex = message.indexOf("score cp");
-                    let pvIndex = message.indexOf("pv");
+            if (message.startsWith("info depth") || message.startsWith("info multipv")) {
+                let multipvMatch = message.match(/multipv (\d+)/);
+                let multipv = (multipvMatch ? parseInt(multipvMatch[1]) : 1);
 
-                    if (scoreIndex !== -1) {
-                        scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
-                        let evaluation = parseInt(scoreStrings[multipv - 1]) / 100 || 0;
-                        evaluation = isWhiteTurn ? evaluation : -evaluation;
-                        evaluations[multipv - 1] = evaluation;
-                    } else {
-                        scoreIndex = message.indexOf("score mate");
-                        scoreStrings[multipv - 1] = message.slice(scoreIndex).split(" ")[2] || "0";
-                        let evaluation = parseInt(scoreStrings[multipv - 1]) || 0;
-                        evaluations[multipv - 1] = "#" + Math.abs(evaluation);
-                    }
+                let scoreIndex = message.indexOf("score cp");
+                let pvIndex = message.indexOf("pv");
+                
+                let evaluation, scoreString;
 
-                    if (pvIndex !== -1) {
-                        let pvString = message.slice(pvIndex + 3).trim().split(" ")[0] || "";
-                        lines[multipv - 1] += pvString + " ";
-                    }
-
-                    // Call callback only when all 3 multipv evaluations are received
-                    if (evaluations.every(eval => eval !== null)) {
-                        callback(lines, evaluations, scoreStrings);
-                        evaluations = [];
-                        lines = [];
-                        scoreStrings = [];
-                    }
+                if (scoreIndex !== -1) {
+                    scoreString = message.slice(scoreIndex).split(" ")[2] || "0";
+                    let cpEvaluation = parseInt(scoreString) / 100 || 0;
+                    evaluation = isWhiteTurn ? cpEvaluation : -cpEvaluation;
+                } else {
+                    scoreIndex = message.indexOf("score mate");
+                    scoreString = message.slice(scoreIndex).split(" ")[2] || "0";
+                    let mateEvaluation = parseInt(scoreString) || 0;
+                    evaluation = "#" + Math.abs(mateEvaluation);
                 }
-            } else if (message.startsWith("info string")) {
-                console.log("Stockfish Info String:", message);
+
+                let pvString = "";
+                if (pvIndex !== -1) {
+                    let pvText = message.slice(pvIndex + 3).trim();
+                    pvString = pvText.split(" ").slice(0, 3).join(" ");
+                }
+
+                if (multipv >= 1 && multipv <= 3) {
+                    evaluations[multipv - 1] = evaluation;
+                    lines[multipv - 1] = pvString;
+                    scoreStrings[multipv - 1] = scoreString;
+                }
+                
+                // Only display when we have at least one valid evaluation
+                if (evaluations[0] !== null) {
+                    displayEvaluation(lines, evaluations, scoreStrings[0]);
+                }
+
             } else if (message.startsWith("bestmove")) {
+                isAwaitingEvaluation = false;
+                // Log the best move and reset the UI state.
                 console.log("Stockfish Best Move:", message);
+                // The `displayEvaluation` will already have the final value from the last `info` message.
             }
         };
         stockfishWorker.onerror = function(error) {
             console.error("Stockfish Worker Error:", error);
+            isAwaitingEvaluation = false;
         };
+        // Initial setup commands
         stockfishWorker.postMessage("uci");
         stockfishWorker.postMessage("isready");
-    }
 
-    stockfishWorker.postMessage("ucinewgame");
-    stockfishWorker.postMessage("setoption name multipv value 3");
-    stockfishWorker.postMessage("position fen " + fen);
-    stockfishWorker.postMessage("go depth 10");
+    } else if (isEngineReady) {
+        // If the worker is already initialized and ready, just send the new position.
+        startAnalysis();
+    }
 }
 
 // Cache DOM elements for better performance
@@ -889,8 +916,8 @@ function initializeEvaluationElements() {
     
     // Cache evaluation line elements
     for (let i = 1; i <= 3; i++) {
-        evaluationElements.evalLines[i-1] = document.getElementById(`eval${i}`);
-        evaluationElements.lineElements[i-1] = document.getElementById(`line${i}`);
+        evaluationElements.evalLines.push(document.getElementById(`eval${i}`));
+        evaluationElements.lineElements.push(document.getElementById(`line${i}`));
     }
 }
 
@@ -907,16 +934,6 @@ function displayEvaluation(lines, evaluations, scoreString) {
         initializeEvaluationElements();
     }
     
-    // Validate inputs
-    if (!Array.isArray(evaluations) || evaluations.length === 0) {
-        console.warn("Invalid evaluations data provided to displayEvaluation");
-        return false;
-    }
-    
-    if (!Array.isArray(lines)) {
-        lines = [];
-    }
-    
     // Check if required DOM elements exist
     if (!evaluationElements.blackBar || !evaluationElements.evalNum) {
         console.error("Required evaluation bar elements not found in DOM");
@@ -924,13 +941,19 @@ function displayEvaluation(lines, evaluations, scoreString) {
     }
 
     try {
-        // Get primary evaluation and sanitize it
-        let evaluation = evaluations[0];
-        if (evaluation === null || evaluation === undefined) {
-            evaluation = 0;
+        if (scoreString === "Thinking...") {
+            evaluationElements.evalMain.textContent = '';
+            evaluationElements.evalText.textContent = "Thinking...";
+            evaluationElements.blackBar.style.height = '50%';
+            evaluationElements.evalNum.textContent = '0.00';
+            for (let i = 0; i < 3; i++) {
+                if (evaluationElements.evalLines[i]) evaluationElements.evalLines[i].textContent = '';
+                if (evaluationElements.lineElements[i]) evaluationElements.lineElements[i].textContent = '';
+            }
+            return;
         }
-        
-        // Sanitize scoreString
+
+        let evaluation = evaluations[0] !== null ? evaluations[0] : 0;
         scoreString = (typeof scoreString === 'string') ? scoreString.trim() : '0';
         if (!scoreString) scoreString = '0';
 
@@ -956,8 +979,8 @@ function updateEvaluationBar(evaluation, scoreString) {
     
     if (typeof evaluation === 'number') {
         // Clamp evaluation to reasonable range
-        const clampedEval = Math.max(-15, Math.min(15, evaluation));
-        const blackBarHeight = 50 - (clampedEval / 15 * 100);
+        const clampedEval = Math.max(-5, Math.min(5, evaluation));
+        const blackBarHeight = 50 - (clampedEval / 5 * 50); // Scale to 0-100%
         const finalHeight = Math.max(0, Math.min(100, blackBarHeight));
         
         blackBar.style.height = finalHeight + "%";
@@ -966,9 +989,10 @@ function updateEvaluationBar(evaluation, scoreString) {
     } else if (typeof evaluation === 'string' && evaluation.startsWith('#')) {
         // Handle mate evaluations
         const scoreValue = parseInt(scoreString) || 0;
-        const isWhiteWinning = (scoreValue > 0 && isWhiteTurn) || (scoreValue < 0 && !isWhiteTurn);
+        // Check if the current player is winning or losing
+        const isWinning = (scoreValue > 0 && isWhiteTurn) || (scoreValue < 0 && !isWhiteTurn);
         
-        blackBar.style.height = isWhiteWinning ? '0%' : '100%';
+        blackBar.style.height = isWinning ? '0%' : '100%';
         evalNum.textContent = evaluation;
     }
 }
@@ -981,7 +1005,7 @@ function updateEvaluationLines(lines, evaluations) {
         const lineElement = evaluationElements.lineElements[i];
         
         if (evalElement && lineElement) {
-            if (i < maxLines && evaluations[i] !== undefined) {
+            if (i < maxLines && evaluations[i] !== null) {
                 evalElement.textContent = evaluations[i].toString();
                 lineElement.textContent = (lines[i] || '').trim();
             } else {
@@ -1010,22 +1034,12 @@ function updateEvaluationText(evaluation, scoreString) {
         
     } else if (typeof evaluation === 'number') {
         // Handle numeric evaluations
-        const absEval = Math.abs(evaluation);
-        
-        if (absEval < 0.5) {
-            evalText.textContent = "Equal";
-        } else if (evaluation >= 0.5 && evaluation < 1) {
-            evalText.textContent = "White is slightly better";
-        } else if (evaluation <= -0.5 && evaluation > -1) {
-            evalText.textContent = "Black is slightly better";
-        } else if (evaluation >= 1 && evaluation < 2) {
-            evalText.textContent = "White is significantly better";
-        } else if (evaluation <= -1 && evaluation > -2) {
-            evalText.textContent = "Black is significantly better";
-        } else if (evaluation >= 2) {
-            evalText.textContent = "White is winning!";
-        } else if (evaluation <= -2) {
-            evalText.textContent = "Black is winning!";
+        if (evaluation >= 0.5) {
+            evalText.textContent = "White has an advantage";
+        } else if (evaluation <= -0.5) {
+            evalText.textContent = "Black has an advantage";
+        } else {
+            evalText.textContent = "Equal position";
         }
     } else {
         evalText.textContent = "Unknown";
