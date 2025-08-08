@@ -206,25 +206,17 @@ body {
       z-index: 2;
   }
 
-  #fen-display, #status-message {
-      margin: 10px;
-      font-size: 16px;
-      text-align: center;
+#fen-display {
+      margin-bottom: 10px;
+      font-size: 14px;
   }
-
   #resetButton {
-      margin: 20px;
-      padding: 10px 20px;
+      margin-top: 10px;
+      padding: 5px 10px;
       font-size: 16px;
-      cursor: pointer;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 5px;
   }
-
-  #resetButton:hover {
-      background-color: #45a049;
+  .container {
+      text-align: center;
   }
 
   .modal {
