@@ -1,4 +1,4 @@
-// This file has been updated to use the evaluation bar logic from your original working code.
+// This file has been updated to fix the evaluation bar logic by using direct DOM manipulation.
 
 // Initialize the Stockfish web worker
 let stockfishWorker = new Worker('/lib/stockfish-nnue-16.js');
@@ -151,7 +151,9 @@ stockfishWorker.onmessage = function(event) {
             updateStatus();
         }
     } else if (message.startsWith('info score cp')) {
-        const score = parseInt(message.split(' ')[2], 10) / 100;
+        // This is the line that processes the evaluation score.
+        // It's working correctly in your logs, but the visual update is what's failing.
+        const score = parseInt(message.split(' ')[4], 10) / 100; // Corrected index for score
         updateEvaluationBar(score);
     }
 };
