@@ -151,10 +151,19 @@ stockfishWorker.onmessage = function(event) {
             updateStatus();
         }
     } else if (message.startsWith('info score cp')) {
-        // This is the line that processes the evaluation score.
-        // It's working correctly in your logs, but the visual update is what's failing.
-        const score = parseInt(message.split(' ')[4], 10) / 100; // Corrected index for score
-        updateEvaluationBar(score);
+        const parts = message.split(' ');
+        // Check if the score is provided as 'cp' (centipawns)
+        const cpIndex = parts.indexOf('cp');
+        if (cpIndex !== -1 && parts[cpIndex + 1]) {
+            const score = parseInt(parts[cpIndex + 1], 10) / 100;
+            updateEvaluationBar(score);
+        } else if (parts.indexOf('mate') !== -1) {
+            // Handle mate scores
+            const mateIndex = parts.indexOf('mate');
+            const mateIn = parseInt(parts[mateIndex + 1], 10);
+            const score = mateIn > 0 ? 10 : -10;
+            updateEvaluationBar(score);
+        }
     }
 };
 
