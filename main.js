@@ -1,4 +1,4 @@
-// This file has been updated to fix image paths and modal issues.
+// This file has been updated to fix image paths, modal functionality, and a race condition.
 
 // Initialize the Stockfish web worker
 let stockfishWorker = new Worker('/lib/stockfish-nnue-16.js');
@@ -21,7 +21,9 @@ let aiTurn = false;
 
 // Event listeners
 resetButton.on('click', resetGame);
-closeModalButton.on('click', () => gameOverModal.hide());
+// Correctly use removeClass to hide the modal
+closeModalButton.on('click', () => gameOverModal.removeClass('active'));
+
 $(document).ready(function() {
     initGame();
 });
@@ -44,13 +46,13 @@ function initGame() {
             };
             // The path to your images folder
             const path = '/images/' + pieceMap[piece];
-            // Provide a fallback in case the image is not found, though this should be handled
-            // by the custom path.
             return path;
         }
     };
     try {
         board = Chessboard('myBoard', config);
+        // Explicitly set the board to the starting position to prevent conflicts
+        board.position(game.fen());
         updateStatus();
         stockfishWorker.postMessage('uci');
         stockfishWorker.postMessage('isready');
@@ -69,6 +71,7 @@ function resetGame() {
     aiTurn = false;
     updateStatus();
     stockfishWorker.postMessage('ucinewgame');
+    // Ensure the modal is hidden on reset
     gameOverModal.removeClass('active');
 }
 
