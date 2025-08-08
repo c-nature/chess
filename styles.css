@@ -86,7 +86,7 @@
 .eval-bar {
     background-color: #fff;
     width: 30px;
-    height: min(95vw, 900px);
+    height: 900px;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -214,9 +214,11 @@
         font-size: 0.6rem;
     }
 }
-.evaluation-score {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin-top: 0.5rem;
+.evaluation-bar {
+    position: relative;
+    width: 30px;
+    height: 100%;
+    background-color: #f3f4f6;
+    border-radius: 3px;
+    overflow: hidden;
 }
