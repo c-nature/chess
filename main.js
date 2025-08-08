@@ -204,8 +204,15 @@ function updateEvaluationBar(score) {
     console.log('Normalized Score:', normalizedScore);
     console.log('Percentage:', percentage);
     
-    // Use direct DOM manipulation for the style.height
-    evaluationBar.style.height = `${100 - percentage}%`;
+    // Check for window width to determine orientation
+    if (window.innerWidth <= 768) {
+        evaluationBar.style.width = `${percentage}%`;
+        evaluationBar.style.height = '100%';
+    } else {
+        evaluationBar.style.height = `${100 - percentage}%`;
+        evaluationBar.style.width = '100%';
+    }
+
     evaluationScore.textContent = normalizedScore.toFixed(2);
     if (normalizedScore > 1) {
         evaluationBar.style.backgroundColor = 'rgb(52, 211, 153)';
