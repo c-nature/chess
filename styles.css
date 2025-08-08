@@ -76,15 +76,15 @@
 }
 
 #myBoard {
-    width: 900px;
-    height: 900px;
+    width: min(95vw, 900px);
+    height: min(95vw, 900px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .eval-bar {
     background-color: #fff;
     width: 30px;
-    height: 900px;
+    height: min(95vw, 900px);
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
