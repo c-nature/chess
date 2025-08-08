@@ -5,176 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Game</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
-    <!-- Tailwind CSS CDN for styling -->
+    <!-- Link to Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f0f0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-
-        /* Chessboard.js styling */
-        .board-container {
-            width: min(95vw, 600px);
-            height: min(95vw, 600px);
-            display: flex;
-            position: relative;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        #myBoard {
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Promotion overlay styling */
-        .promotion-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-
-        .promotion-overlay.active {
-            display: flex;
-        }
-
-        .promotion-choices {
-            background-color: #fff;
-            padding: 1.5rem;
-            border-radius: 0.75rem;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .promotion-choice {
-            width: 4rem;
-            height: 4rem;
-            background-color: #f3f4f6;
-            border: 2px solid #e5e7eb;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: all 0.2s ease-in-out;
-        }
-
-        .promotion-choice:hover {
-            background-color: #e5e7eb;
-            transform: translateY(-3px);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .promotion-choice img {
-            max-width: 80%;
-            max-height: 80%;
-            object-fit: contain;
-        }
-
-        /* Evaluation bar styling */
-        #evalBar {
-            background-color: #fff;
-            width: 30px;
-            height: 600px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            align-items: center;
-            position: relative;
-            border-radius: 3px;
-            overflow: hidden;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.7) inset;
-        }
-
-        #evalBar .blackBar {
-            width: 100%;
-            height: 50%;
-            background-color: #374151; /* A neutral gray */
-            transition: height 1s ease-in-out, background-color 0.5s ease;
-            position: absolute;
-            bottom: 0;
-        }
-
-        .zero {
-            width: 100%;
-            border-bottom: 2px solid #f97316;
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            height: auto;
-            z-index: 2;
-        }
-
-        #evalNum {
-            width: 100%;
-            position: absolute;
-            top: 5px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            text-align: center;
-            color: #1f2937;
-            z-index: 2;
-        }
-
-        /* Responsive design for mobile */
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-            }
-            .main-content {
-                flex-direction: column;
-                align-items: center;
-            }
-            #evalBar {
-                width: min(95vw, 600px);
-                height: 30px;
-                flex-direction: row;
-                justify-content: center;
-            }
-            #evalBar .blackBar {
-                height: 100%;
-                width: 50%;
-                left: 0;
-                top: 0;
-            }
-            .zero {
-                height: 100%;
-                width: 2px;
-                border-bottom: none;
-                border-right: 2px solid #f97316;
-                left: 50%;
-                top: 0;
-                transform: translateX(-50%);
-            }
-            #evalNum {
-                top: auto;
-                bottom: 5px;
-                font-size: 0.6rem;
-            }
-        }
-    </style>
+    <!-- Link to your local styles.css file -->
+    <link rel="stylesheet" href="/styles.css">
     <!-- Chessboard.js CSS -->
-    <link rel="stylesheet"
-        href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"
-        xintegrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU"
-        crossorigin="anonymous">
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 </head>
-<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+<body id="chess-body" class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
     <div class="flex flex-col items-center justify-center gap-4 p-4 rounded-lg bg-white shadow-xl max-w-screen-lg w-full">
         <h1 class="text-2xl font-bold text-gray-800">Chess Game</h1>
         <div class="flex flex-col md:flex-row items-center md:items-start gap-4 w-full">
@@ -211,63 +49,10 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"
-        xintegrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2"
-        crossorigin="anonymous"></script>
-
-    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"
-        xintegrity="sha384-8Vi8VHwn3vjQ9eUHUxex3JSN/NFqUg3QbPyX8kWyb93+8AC/pPWTzj+nHtbC5bxD"
-        crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.2/chess.min.js"></script>
+    <!-- Link to your local main.js file -->
     <script src="/main.js"></script>
-    
-    <script>
-        // Modal logic
-        const closeModalButton = document.getElementById('closeModalButton');
-        const gameOverModal = document.getElementById('game-over-modal');
-        closeModalButton.addEventListener('click', () => {
-            gameOverModal.style.display = 'none';
-        });
-        
-        // This function is defined in main.js, we just need to ensure the modal can be shown.
-        function showModal(message) {
-            document.getElementById('modal-message').textContent = message;
-            gameOverModal.style.display = 'flex';
-        }
-
-        // To make the eval bar responsive and horizontal on mobile
-        function updateEvaluationBarForMobile(score) {
-            const normalizedScore = Math.max(-10, Math.min(10, score));
-            const percentage = ((normalizedScore + 10) / 20) * 100;
-            const evalBar = document.getElementById('evalBar');
-            const blackBar = evalBar.querySelector('.blackBar');
-            const evalNum = document.getElementById('evalNum');
-            
-            if (window.innerWidth <= 768) {
-                blackBar.style.width = `${percentage}%`;
-                blackBar.style.height = '100%';
-            } else {
-                blackBar.style.height = `${100 - percentage}%`;
-                blackBar.style.width = '100%';
-            }
-            evalNum.textContent = normalizedScore.toFixed(2);
-        }
-
-        window.addEventListener('resize', () => {
-            // Re-render the evaluation bar on resize
-            // You will need to modify your main.js to call this function
-            // when a new evaluation score is received.
-            const currentScoreText = document.getElementById('evalNum').textContent;
-            const currentScore = parseFloat(currentScoreText);
-            updateEvaluationBarForMobile(currentScore);
-        });
-
-        // Initial call to set the correct orientation
-        document.addEventListener('DOMContentLoaded', () => {
-             // You might need to change the function call in main.js to this one to support both orientations.
-            // updateEvaluationBarForMobile(0); // Assuming initial score is 0
-        });
-
-    </script>
 </body>
 </html>

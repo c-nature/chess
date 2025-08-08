@@ -1,298 +1,160 @@
-body {
-      display: flex;
-      min-height: 100vh;
-      margin: 0;
-      background-color: #f0f0f0;
-      font-family: sans-serif;
-      align-items: center;
-      justify-content: center;
-  }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
-  .chessBoard {
-      width: 600px;
-      height: 600px;
-      border: 2px solid #333;
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      grid-template-rows: repeat(8, 1fr);
-      box-sizing: content-box;
-  }
+#chess-body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
 
-  .square {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      box-sizing: border-box;
-      min-width: 0;
-      min-height: 0;
-  }
+/* Chessboard.js styling */
+.board-container {
+    width: min(95vw, 600px);
+    height: min(95vw, 600px);
+    display: flex;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
 
-  .white {
-      background-color: #f0d9b5;
-  }
+#myBoard {
+    width: 100%;
+    height: 100%;
+}
 
-  .black {
-      background-color: #b58863;
-  }
+/* Promotion overlay styling */
+.promotion-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
 
-  .piece {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1;
-      cursor: grab;
-  }
+.promotion-overlay.active {
+    display: flex;
+}
 
-  .piece img {
-      max-width: 90%;
-      max-height: 90%;
-      width: auto;
-      height: auto;
-      object-fit: contain;
-  }
+.promotion-choices {
+    background-color: #fff;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
 
-  .coordinate {
-      position: absolute;
-      font-weight: bold;
-      font-family: Verdana, Geneva, Tahoma, sans-serif;
-      z-index: 1;
-  }
+.promotion-choice {
+    width: 4rem;
+    height: 4rem;
+    background-color: #f3f4f6;
+    border: 2px solid #e5e7eb;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s ease-in-out;
+}
 
-  .coordinate.rank {
-      top: 4%;
-      right: 4%;
-      left: auto;
-      bottom: auto;
-      color: black;
-  }
+.promotion-choice:hover {
+    background-color: #e5e7eb;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
 
-  .coordinate.file {
-      bottom: 4%;
-      left: 4%;
-      top: auto;
-      right: auto;
-      color: black;
-  }
+.promotion-choice img {
+    max-width: 80%;
+    max-height: 80%;
+    object-fit: contain;
+}
 
-  .whiteText {
-      color: white;
-  }
+/* Evaluation bar styling */
+#evalBar {
+    background-color: #fff;
+    width: 30px;
+    height: 600px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    position: relative;
+    border-radius: 3px;
+    overflow: hidden;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.7) inset;
+}
 
-  .blackText {
-      color: black;
-  }
+#evalBar .blackBar {
+    width: 100%;
+    height: 50%;
+    background-color: #374151; /* A neutral gray */
+    transition: height 1s ease-in-out, background-color 0.5s ease;
+    position: absolute;
+    bottom: 0;
+}
 
-  .promotion-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      visibility: hidden;
-      opacity: 0;
-      transition: visibility 0s, opacity 0.3s ease-in-out;
-  }
+.zero {
+    width: 100%;
+    border-bottom: 2px solid #f97316;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: auto;
+    z-index: 2;
+}
 
-  .promotion-overlay.active {
-      visibility: visible;
-      opacity: 1;
-  }
+#evalNum {
+    width: 100%;
+    position: absolute;
+    top: 5px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-align: center;
+    color: #1f2937;
+    z-index: 2;
+}
 
-  .promotion-choices {
-      background-color: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-      display: flex;
-      gap: 15px;
-      flex-wrap: wrap;
-      justify-content: center;
-  }
-
-  .promotion-choice {
-      width: 100px;
-      height: 100px;
-      background-color: #eee;
-      border: 2px solid #ccc;
-      border-radius: 8px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background-color 0.2s ease, transform 0.2s ease;
-  }
-
-  .promotion-choice:hover {
-      background-color: #ddd;
-      transform: translateY(-3px);
-  }
-
-  .promotion-choice img {
-      max-width: 80%;
-      max-height: 80%;
-      object-fit: contain;
-  }
-
-  .container {
-      display: flex;
-      align-items: flex-start;
-      gap: 20px;
-  }
-
-  #evalBar {
-      background-color: rgb(255,255,255);
-      width: 30px;
-      height: 600px;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      align-items: center;
-      position: relative;
-      border-radius: 3px;
-      overflow: hidden;
-  }
-
-  #evalBar::after {
-      content: "";
-      display: block;
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      box-shadow: 0 0 5px rgba(0,0,0,0.7) inset;
-      border-radius: 3px;
-  }
-
-  #evalBar .blackBar {
-      width: 100%;
-      height: 50%;
-      background-color: #656;
-      transition: height 1s ease-in-out;
-      position: absolute;
-      bottom: 0;
-      border-radius: 3px;
-  }
-
-  .zero {
-      width: 100%;
-      opacity: 1;
-      border-bottom: 2px solid rgba(214, 79, 0, 0.8);
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      height: auto;
-      z-index: 2;
-  }
-
-  #evalNum {
-      width: 100%;
-      opacity: 1;
-      position: absolute;
-      top: 5px;
-      height: auto;
-      font-size: 0.8rem;
-      font-weight: bolder;
-      text-align: center;
-      color: #d18232;
-      z-index: 2;
-  }
-
-#fen-display {
-      margin-bottom: 10px;
-      font-size: 14px;
-  }
-  #resetButton {
-      margin-top: 10px;
-      padding: 5px 10px;
-      font-size: 16px;
-  }
-  .container {
-      text-align: center;
-  }
-
-  .modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.7);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-  }
-
-  .modal.active {
-      display: flex;
-  }
-
-  #modal-message {
-      background-color: white;
-      padding: 20px;
-      border-radius: 8px;
-      text-align: center;
-      font-size: 18px;
-  }
-
-  @media (max-width: 600px) {
-      .chessBoard {
-          width: 90vw;
-          height: 90vw;
-      }
-      .coordinate {
-          font-size: 8px;
-      }
-      .promotion-choice {
-          width: 70px;
-          height: 70px;
-      }
-      .container {
-          flex-direction: column;
-          align-items: center;
-      }
-      #evalBar {
-          width: 90vw;
-          height: 30px;
-          flex-direction: row;
-          justify-content: center;
-      }
-      #evalBar .blackBar {
-          height: 100%;
-          width: 50%;
-          left: 0;
-          top: 0;
-      }
-      .zero {
-          height: 100%;
-          width: 2px;
-          border-bottom: none;
-          border-right: 2px solid rgba(214, 79, 0, 0.8);
-          left: 50%;
-          top: 0;
-          transform: translateX(-50%);
-      }
-      #evalNum {
-          top: auto;
-          bottom: 5px;
-          font-size: 0.6rem;
-      }
-  }
-
-  @media (min-width: 601px) {
-      .coordinate {
-          font-size: 12px;
-      }
-      #evalBar {
-          height: 600px;
-      }
-  }
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    #chess-body {
+        flex-direction: column;
+    }
+    .main-content {
+        flex-direction: column;
+        align-items: center;
+    }
+    #evalBar {
+        width: min(95vw, 600px);
+        height: 30px;
+        flex-direction: row;
+        justify-content: center;
+    }
+    #evalBar .blackBar {
+        height: 100%;
+        width: 50%;
+        left: 0;
+        top: 0;
+    }
+    .zero {
+        height: 100%;
+        width: 2px;
+        border-bottom: none;
+        border-right: 2px solid #f97316;
+        left: 50%;
+        top: 0;
+        transform: translateX(-50%);
+    }
+    #evalNum {
+        top: auto;
+        bottom: 5px;
+        font-size: 0.6rem;
+    }
+}
