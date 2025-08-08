@@ -76,6 +76,8 @@
 }
 
 #myBoard {
+    max-width: 900px;
+    max-height: 900px;
     width: min(95vw, 900px);
     height: min(95vw, 900px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -212,11 +214,9 @@
         font-size: 0.6rem;
     }
 }
-.evaluation-bar {
-    position: relative;
-    width: 30px;
-    height: 100%;
-    background-color: #f3f4f6;
-    border-radius: 3px;
-    overflow: hidden;
+.evaluation-score {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-top: 0.5rem;
 }

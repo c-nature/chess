@@ -1,5 +1,4 @@
-// This file has been updated to fix the evaluation bar logic by using direct DOM manipulation.
-// I have also added console.log statements to help debug the issue.
+// This file has been updated to use the evaluation bar logic from your original working code.
 
 // Initialize the Stockfish web worker
 let stockfishWorker = new Worker('/lib/stockfish-nnue-16.js');
