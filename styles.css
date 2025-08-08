@@ -75,21 +75,19 @@
     gap: 1rem;
 }
 
-/* This targets the main board element and gives it a max size */
 #myBoard {
     max-width: 900px;
     max-height: 900px;
-    width: 95vw;
-    height: 95vw;
+    width: min(95vw, 900px);
+    height: min(95vw, 900px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .eval-bar {
     background-color: #fff;
     width: 30px;
-    /* Set the height to match the board's height for desktop layout */
-    height: 95vw;
-    max-height: 900px;
+    /* Set the height of the eval bar dynamically to match the board's dimensions */
+    height: min(95vw, 900px);
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -187,8 +185,7 @@
         align-items: center;
     }
     .eval-bar {
-        width: 95vw;
-        max-width: 900px;
+        width: min(95vw, 900px);
         height: 30px;
         flex-direction: row;
         justify-content: center;
