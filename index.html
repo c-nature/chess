@@ -5,41 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Game</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
-    <!-- Link to Tailwind CSS CDN for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
     <!-- Link to your local styles.css file -->
     <link rel="stylesheet" href="/styles.css">
     <!-- Chessboard.js CSS -->
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 </head>
-<body id="chess-body" class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
-    <div class="flex flex-col items-center justify-center gap-4 p-4 rounded-lg bg-white shadow-xl max-w-screen-xl w-full">
-        <h1 class="text-2xl font-bold text-gray-800">Chess Game</h1>
-        <div class="flex flex-col md:flex-row items-center md:items-start gap-4 w-full">
-            <div class="flex flex-col items-center space-y-2">
-                <!-- Removed FEN display -->
-                <div id="status-message" class="text-lg font-semibold text-gray-800">White's turn</div>
-                <button id="resetButton" class="px-6 py-2 rounded-full bg-blue-500 text-white font-bold hover:bg-blue-600 transition duration-300 shadow-md">
+<body id="chess-body">
+    <div class="container">
+        <h1 class="game-title">Chess Game</h1>
+        <div class="game-layout">
+            <div class="control-panel">
+                <div id="status-message" class="status-message">White's turn</div>
+                <button id="resetButton" class="reset-button">
                     Reset Game
                 </button>
             </div>
             
-            <div class="flex items-center gap-4 main-content">
+            <div class="board-with-eval">
                 <div id="myBoard" class="board-container"></div>
-                <div id="evalBar" class="hidden md:flex flex-col h-full w-8 bg-gray-200 rounded-lg shadow-inner relative">
-                    <div class="blackBar absolute bottom-0 w-full transition-all duration-1000 ease-in-out" style="height: 50%;"></div>
-                    <div class="absolute top-1/2 left-0 w-full h-0.5 bg-orange-500 transform -translate-y-1/2 z-10"></div>
-                    <div id="evalNum" class="absolute top-1 text-center w-full text-xs font-bold text-gray-700 z-20">0.00</div>
+                <div id="evalBar" class="eval-bar">
+                    <div class="blackBar"></div>
+                    <div class="zero"></div>
+                    <div id="evalNum" class="eval-num">0.00</div>
                 </div>
             </div>
         </div>
     </div>
     
     <!-- Game over modal -->
-    <div id="game-over-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[100] hidden">
-        <div class="bg-white p-8 rounded-lg shadow-xl text-center">
-            <div id="modal-message" class="text-xl font-bold mb-4 text-gray-800"></div>
-            <button id="closeModalButton" class="px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600">Close</button>
+    <div id="game-over-modal" class="modal">
+        <div class="modal-content">
+            <div id="modal-message" class="modal-message"></div>
+            <button id="closeModalButton" class="close-modal-button">Close</button>
         </div>
     </div>
 
