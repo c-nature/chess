@@ -86,8 +86,8 @@
 .eval-bar {
     background-color: #fff;
     width: 30px;
-    /* Set the height of the eval bar dynamically to match the board's dimensions */
-    height: min(95vw, 900px);
+    /* Use a fixed height for desktop to prevent conflicts */
+    height: 900px;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
