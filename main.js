@@ -1,4 +1,5 @@
 // This file has been updated to fix the evaluation bar logic by using direct DOM manipulation.
+// I have also added console.log statements to help debug the issue.
 
 // Initialize the Stockfish web worker
 let stockfishWorker = new Worker('/lib/stockfish-nnue-16.js');
@@ -197,6 +198,11 @@ function checkGameOver() {
 function updateEvaluationBar(score) {
     const normalizedScore = Math.max(-10, Math.min(10, score));
     const percentage = ((normalizedScore + 10) / 20) * 100;
+
+    // Log the values to the console for debugging
+    console.log('Evaluation Score:', score);
+    console.log('Normalized Score:', normalizedScore);
+    console.log('Percentage:', percentage);
     
     // Use direct DOM manipulation for the style.height
     evaluationBar.style.height = `${100 - percentage}%`;
