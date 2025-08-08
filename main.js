@@ -164,7 +164,7 @@ stockfishWorker.onerror = function(error) {
 // Updates the game status display
 function updateStatus() {
     const moveColor = game.turn() === 'w' ? 'White' : 'Black';
-    fenDisplay.text(`FEN: ${game.fen()}`);
+    // fenDisplay.text(`FEN: ${game.fen()}`); // Removed from the HTML
     let status = '';
     if (game.game_over()) {
         if (game.in_checkmate()) {

@@ -75,8 +75,8 @@
     gap: 1rem;
 }
 
-/* This is the corrected sizing for the chessboard */
-#myBoard {
+/* This is the corrected sizing for the chessboard and evaluation bar */
+#myBoard, .eval-bar {
     width: min(95vw, 900px);
     height: min(95vw, 900px);
     display: flex;
@@ -84,17 +84,13 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-
-/* This is the corrected sizing for the evaluation bar */
 .eval-bar {
-    background-color: #fff;
     width: 30px;
     height: min(95vw, 900px);
-    display: flex;
+    background-color: #fff;
     flex-direction: column;
     justify-content: flex-end;
     align-items: center;
-    position: relative;
     border-radius: 3px;
     overflow: hidden;
     box-shadow: 0 0 5px rgba(0, 0, 0, 0.7) inset;
