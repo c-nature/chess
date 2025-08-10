@@ -53,7 +53,7 @@ levelSelect.addEventListener("change", function(){
  * Initializes all the necessary global and state variables for a new game.
  */
 function newGame() {
-    // This is the correct initial HTML string for the board with forward slashes
+    // This is the correct initial HTML string for the board
     const initialBoardHTML = `
         <div class="square white" id="a8">
             <div class="coordinate rank blackText">8</div>
@@ -288,7 +288,7 @@ function renderBoard() {
                 pieceDiv.setAttribute('draggable', true);
 
                 const pieceImg = document.createElement('img');
-                // Correcting the image path here
+                // Corrected the image path here
                 pieceImg.src = `./images/${piece.color}-${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.png`;
                 pieceImg.alt = `${piece.color} ${piece.type}`;
                 pieceImg.setAttribute('draggable', false);
