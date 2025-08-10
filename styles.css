@@ -7,7 +7,7 @@ body {
     min-height: 100vh;
     margin: 0;
     background-color: #1aa947;
-    font-family: 'Roboto', sans-serif; /* Changed to a similar, more readable font for body text */
+    font-family: 'Roboto', sans-serif;
     align-items: center;
     justify-content: center;
     flex-direction: column;
@@ -50,21 +50,29 @@ body {
     gap: 10px;
 }
 
-.buttonContainer button, .buttonContainer select {
+.buttonContainer button, .buttonContainer select, .level-select span {
+    font-family: 'Bebas Neue', sans-serif; /* Applied a uniform font */
+    color: #FFD700;
+    text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 3px rgba(0,0,0,0.5);
+    font-size: 1.2rem;
+    text-transform: uppercase;
+}
+
+.buttonContainer button {
     width: 120px;
     height: 40px;
     border: none;
     cursor: pointer;
     border-radius: 5px;
     background-color: rgb(87, 64, 64);
-    color: white;
     font-weight: bold;
-    font-family: 'Roboto', sans-serif;
+    letter-spacing: 1px;
 }
 
 .buttonContainer select {
     background-color: whitesmoke;
     color: black;
+    text-shadow: none; /* Removing shadow for readability on the select element */
 }
 
 .level-select {
@@ -135,7 +143,7 @@ body {
 .coordinate {
     position: absolute;
     font-weight: bold;
-    font-family: 'Roboto', sans-serif; /* Updated font */
+    font-family: 'Roboto', sans-serif;
     z-index: 1;
 }
 
@@ -300,7 +308,7 @@ body {
     font-size: 17px;
     white-space: nowrap;
     text-align: left;
-    font-family: 'Roboto', sans-serif; /* Updated font */
+    font-family: 'Roboto', sans-serif;
 }
 
 #eval1, #eval2, #eval3 {
