@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
 
 /* General Layout and Styling */
 body {
@@ -6,7 +7,7 @@ body {
     min-height: 100vh;
     margin: 0;
     background-color: #1aa947;
-    font-family: sans-serif;
+    font-family: 'Roboto', sans-serif; /* Changed to a similar, more readable font for body text */
     align-items: center;
     justify-content: center;
     flex-direction: column;
@@ -58,6 +59,7 @@ body {
     background-color: rgb(87, 64, 64);
     color: white;
     font-weight: bold;
+    font-family: 'Roboto', sans-serif;
 }
 
 .buttonContainer select {
@@ -133,7 +135,7 @@ body {
 .coordinate {
     position: absolute;
     font-weight: bold;
-    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    font-family: 'Roboto', sans-serif; /* Updated font */
     z-index: 1;
 }
 
@@ -276,6 +278,7 @@ body {
     text-align: center;
     color: #d18232;
     z-index: 2;
+    font-family: 'Roboto', sans-serif;
 }
 
 #topLines {
@@ -297,6 +300,7 @@ body {
     font-size: 17px;
     white-space: nowrap;
     text-align: left;
+    font-family: 'Roboto', sans-serif; /* Updated font */
 }
 
 #eval1, #eval2, #eval3 {
