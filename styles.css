@@ -54,16 +54,16 @@ body {
     font-family: 'Bebas Neue', sans-serif; /* Applied a uniform font */
     color: #FFD700;
     text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 3px rgba(0,0,0,0.5);
-    font-size: 1.2rem;
+    font-size: 2rem;
     text-transform: uppercase;
 }
 
 .buttonContainer button {
-    width: 120px;
-    height: 40px;
-    border: none;
+    width: 200px;
+    height: 70px;
+    border:    2px solid #FFD700;
     cursor: pointer;
-    border-radius: 5px;
+    border-radius: 20px;
     background-color: rgb(87, 64, 64);
     font-weight: bold;
     letter-spacing: 1px;
