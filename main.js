@@ -1014,10 +1014,10 @@ function displayEvaluation(lines, evaluations, scoreString) {
         updateEvaluationText(evaluation, scoreString);
         return true;
     } catch (error) {
-        console.error("Error in displayEvaluation:", error);
-        return false;
+        console.error('Chessboard initialization error:', error);
     }
 }
+<<<<<<< HEAD
 function updateEvaluationBar(evaluation, scoreString) {
     const { blackBar, evalNum } = evaluationElements;
     if (typeof evaluation === 'number') {
@@ -1045,9 +1045,113 @@ function updateEvaluationLines(lines, evaluations) {
             } else {
                 evalElement.textContent = '';
                 lineElement.textContent = '';
+=======
+
+// Resets the game to the starting position
+function resetGame() {
+    game = new Chess();
+    board.start();
+    aiTurn = false;
+    updateStatus();
+    stockfishWorker.postMessage('ucinewgame');
+    // Ensure the modal is hidden on reset
+    gameOverModal.classList.remove('active');
+}
+
+// Handles piece drops on the board
+function onDrop(source, target) {
+    if (game.get(source).type === 'p' && (target[1] === '8' || target[1] === '1')) {
+        showPromotionOverlay(source, target);
+        return;
+    }
+    const move = game.move({ from: source, to: target, promotion: 'q' });
+    if (move === null) {
+        return 'snapback';
+    }
+    checkGameOver();
+    updateStatus();
+    if (!game.game_over()) {
+        aiTurn = true;
+        setTimeout(makeAiMove, 500);
+    }
+    return;
+}
+
+// Displays the pawn promotion selection overlay
+function showPromotionOverlay(source, target) {
+    const overlay = document.getElementById('promotion-overlay');
+    const choices = document.querySelector('.promotion-choices');
+    choices.innerHTML = '';
+    const pieces = ['q', 'r', 'b', 'n'];
+    const color = game.turn() === 'w' ? 'White' : 'Black';
+    pieces.forEach(piece => {
+        const pieceName = piece.toUpperCase();
+        const div = document.createElement('div');
+        div.className = 'promotion-choice';
+        // Use the same image path logic as the pieceTheme
+        div.innerHTML = `<img src="/images/${color}-${pieceName}.png" alt="${piece}">`;
+        div.addEventListener('click', () => {
+            game.move({ from: source, to: target, promotion: piece });
+            board.position(game.fen());
+            overlay.classList.remove('active');
+            updateStatus();
+            if (!game.game_over()) {
+                aiTurn = true;
+                setTimeout(makeAiMove, 500);
+>>>>>>> b6dd21f57dc2745c2209d5613e0138000b9081dc
             }
+        });
+        choices.appendChild(div);
+    });
+    overlay.classList.add('active');
+}
+
+// Handles board updates after a piece has been moved
+function onSnapEnd() {
+    board.position(game.fen());
+}
+
+// Initiates a move from the AI (Stockfish)
+function makeAiMove() {
+    if (aiTurn) {
+        statusMessage.textContent = 'Stockfish is thinking...';
+        stockfishWorker.postMessage(`position fen ${game.fen()}`);
+        stockfishWorker.postMessage('go movetime 2000');
+    }
+}
+
+// Handles messages from the Stockfish web worker
+stockfishWorker.onmessage = function(event) {
+    console.log('Stockfish message:', event.data);
+    const message = event.data;
+    if (message === 'readyok') {
+        console.log('Stockfish is ready');
+    }
+    if (message.startsWith('bestmove')) {
+        const bestMove = message.split(' ')[1];
+        if (bestMove && bestMove !== '(none)') {
+            game.move(bestMove, { sloppy: true });
+            board.position(game.fen());
+            aiTurn = false;
+            checkGameOver();
+            updateStatus();
+        }
+    } else if (message.startsWith('info score cp')) {
+        const parts = message.split(' ');
+        // Check if the score is provided as 'cp' (centipawns)
+        const cpIndex = parts.indexOf('cp');
+        if (cpIndex !== -1 && parts[cpIndex + 1]) {
+            const score = parseInt(parts[cpIndex + 1], 10) / 100;
+            updateEvaluationBar(score);
+        } else if (parts.indexOf('mate') !== -1) {
+            // Handle mate scores
+            const mateIndex = parts.indexOf('mate');
+            const mateIn = parseInt(parts[mateIndex + 1], 10);
+            const score = mateIn > 0 ? 10 : -10;
+            updateEvaluationBar(score);
         }
     }
+<<<<<<< HEAD
 }
 function updateEvaluationText(evaluation, scoreString) {
     const { evalMain, evalText } = evaluationElements;
@@ -1075,8 +1179,86 @@ function updateEvaluationText(evaluation, scoreString) {
             evalText.textContent = "White is winning!";
         } else if (evaluation <= -2) {
             evalText.textContent = "Black is winning!";
+=======
+};
+
+stockfishWorker.onerror = function(error) {
+    console.error('Stockfish error:', error);
+};
+
+// Updates the game status display
+function updateStatus() {
+    const moveColor = game.turn() === 'w' ? 'White' : 'Black';
+    let status = '';
+    if (game.game_over()) {
+        if (game.in_checkmate()) {
+            status = `Game over, ${moveColor} is in checkmate.`;
+            showModal(`Game over, ${moveColor} is in checkmate.`);
+        } else if (game.in_draw()) {
+            status = `Game over, draw.`;
+            showModal('Game over, draw.');
+        } else {
+            status = `Game over.`;
+            showModal('Game over.');
+>>>>>>> b6dd21f57dc2745c2209d5613e0138000b9081dc
         }
     } else {
-        evalText.textContent = "Unknown";
+        status = `${moveColor}'s turn`;
+    }
+    statusMessage.textContent = status;
+}
+
+// Checks for game over conditions
+function checkGameOver() {
+    if (game.in_checkmate()) {
+        const winner = game.turn() === 'w' ? 'Black' : 'White';
+        showModal(`Checkmate! ${winner} wins!`);
+    } else if (game.in_draw()) {
+        showModal('Game is a draw!');
+    } else if (game.in_stalemate()) {
+        showModal('Stalemate! Game is a draw!');
     }
 }
+
+// Updates the evaluation bar
+function updateEvaluationBar(score) {
+    const normalizedScore = Math.max(-10, Math.min(10, score));
+    const percentage = ((normalizedScore + 10) / 20) * 100;
+
+    // Log the values to the console for debugging
+    console.log('Evaluation Score:', score);
+    console.log('Normalized Score:', normalizedScore);
+    console.log('Percentage:', percentage);
+    
+    // Check for window width to determine orientation
+    if (window.innerWidth <= 768) {
+        evaluationBar.style.width = `${percentage}%`;
+        evaluationBar.style.height = '100%';
+    } else {
+        evaluationBar.style.height = `${100 - percentage}%`;
+        evaluationBar.style.width = '100%';
+    }
+
+    evaluationScore.textContent = normalizedScore.toFixed(2);
+    if (normalizedScore > 1) {
+        evaluationBar.style.backgroundColor = 'rgb(52, 211, 153)';
+    } else if (normalizedScore < -1) {
+        evaluationBar.style.backgroundColor = 'rgb(248, 113, 113)';
+    } else {
+        evaluationBar.style.backgroundColor = 'rgb(107, 114, 128)';
+    }
+}
+
+// Shows a custom modal message
+function showModal(message) {
+    modalMessage.textContent = message;
+    gameOverModal.classList.add('active');
+}
+
+// Handle responsive resizing of the evaluation bar
+window.addEventListener('resize', () => {
+    // Re-render the evaluation bar on resize
+    const currentScoreText = evaluationScore.textContent;
+    const currentScore = parseFloat(currentScoreText);
+    updateEvaluationBar(currentScore);
+});

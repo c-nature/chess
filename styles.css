@@ -76,7 +76,9 @@ body {
 
 .square {
     display: flex;
+    justify-content: center;
     align-items: center;
+<<<<<<< HEAD
     justify-content: center;
     position: relative;
     box-sizing: border-box;
@@ -210,11 +212,95 @@ body {
     height: 600px;
     display: flex;
     flex-direction: column;
+=======
+    min-height: 100vh;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    background-color: #ffffff;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    max-width: 1536px;
+    width: 100%;
+}
+
+.game-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.game-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1rem;
+    width: 100%;
+}
+
+.control-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.status-message {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.reset-button {
+    padding: 0.5rem 1.5rem;
+    border-radius: 9999px;
+    background-color: #3b82f6;
+    color: #ffffff;
+    font-weight: 700;
+    transition: background-color 0.3s ease;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+}
+
+.reset-button:hover {
+    background-color: #2563eb;
+}
+
+.board-with-eval {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+#myBoard {
+    width: min(95vw, 900px);
+    height: min(95vw, 900px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.eval-bar {
+    background-color: #fff;
+    width: 30px;
+    height: min(95vw, 900px);
+    display: flex;
+    flex-direction: column;
+>>>>>>> b6dd21f57dc2745c2209d5613e0138000b9081dc
     justify-content: flex-end;
     align-items: center;
     position: relative;
     border-radius: 3px;
     overflow: hidden;
+<<<<<<< HEAD
 }
 
 #evalBar::after{
@@ -237,10 +323,23 @@ body {
     position: absolute;
     bottom: 0;
     border-radius: 3px;
+=======
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.7) inset;
+}
+
+.eval-bar .blackBar {
+    width: 100%;
+    height: 50%;
+    background-color: #374151;
+    transition: height 1s ease-in-out, background-color 0.5s ease;
+    position: absolute;
+    bottom: 0;
+>>>>>>> b6dd21f57dc2745c2209d5613e0138000b9081dc
 }
 
 .zero {
     width: 100%;
+<<<<<<< HEAD
     opacity: 1;
     border-bottom: 2px solid rgba(214, 79, 0, 0.8);
     position: absolute;
@@ -331,13 +430,102 @@ body {
     }
     #evalBar {
         width: 90vw;
+=======
+    border-bottom: 2px solid #f97316;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: auto;
+    z-index: 2;
+}
+
+.eval-num {
+    width: 100%;
+    position: absolute;
+    top: 5px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-align: center;
+    color: #1f2937;
+    z-index: 2;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background-color: #ffffff;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    text-align: center;
+}
+
+.modal-message {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 1rem;
+}
+
+.close-modal-button {
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    background-color: #3b82f6;
+    color: #ffffff;
+    font-weight: 700;
+    transition: background-color 0.3s ease;
+    cursor: pointer;
+}
+
+.close-modal-button:hover {
+    background-color: #2563eb;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    #chess-body {
+        flex-direction: column;
+    }
+    .game-layout {
+        flex-direction: column;
+        align-items: center;
+    }
+    .board-with-eval {
+        flex-direction: column;
+        align-items: center;
+    }
+    #myBoard {
+        width: 95vw;
+        height: 95vw;
+    }
+    .eval-bar {
+        width: 95vw;
+>>>>>>> b6dd21f57dc2745c2209d5613e0138000b9081dc
         height: 30px;
         flex-direction: row;
         justify-content: center;
     }
+<<<<<<< HEAD
     #evalBar .blackBar {
         height: 100%;
         width: 35%;
+=======
+    .eval-bar .blackBar {
+        height: 100%;
+        width: 50%;
+>>>>>>> b6dd21f57dc2745c2209d5613e0138000b9081dc
         left: 0;
         top: 0;
     }
@@ -345,16 +533,25 @@ body {
         height: 100%;
         width: 2px;
         border-bottom: none;
+<<<<<<< HEAD
         border-right: 2px solid rgba(214, 79, 0, 0.8);
+=======
+        border-right: 2px solid #f97316;
+>>>>>>> b6dd21f57dc2745c2209d5613e0138000b9081dc
         left: 50%;
         top: 0;
         transform: translateX(-50%);
     }
+<<<<<<< HEAD
     .evalNum {
+=======
+    .eval-num {
+>>>>>>> b6dd21f57dc2745c2209d5613e0138000b9081dc
         top: auto;
         bottom: 5px;
         font-size: 0.6rem;
     }
+<<<<<<< HEAD
     #topLines {
         width: 90vw;
         font-size: 10px;
@@ -366,3 +563,14 @@ body {
         max-width: 200px;
     }
 }
+=======
+}
+.evaluation-bar {
+    position: relative;
+    width: 30px;
+    height: 100%;
+    background-color: #f3f4f6;
+    border-radius: 3px;
+    overflow: hidden;
+}
+>>>>>>> b6dd21f57dc2745c2209d5613e0138000b9081dc
