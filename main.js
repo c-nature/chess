@@ -288,7 +288,7 @@ function renderBoard() {
                 pieceDiv.setAttribute('draggable', true);
 
                 const pieceImg = document.createElement('img');
-                pieceImg.src = `./images/${piece.color}-${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.png`;
+                pieceImg.src = `${piece.color}-${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.png`;
                 pieceImg.alt = `${piece.color} ${piece.type}`;
                 pieceImg.setAttribute('draggable', false);
 
@@ -669,33 +669,31 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                     addMove(newRow, newCol);
                 }
             });
-            if (!forCheckValidation) {
-                const kingRow = (pieceColor === 'white') ? 7 : 0;
-                const kingMovedFlag = (pieceColor === 'white') ? hasWhiteKingMoved : hasBlackKingMoved;
-                if (!kingMovedFlag && startRow === kingRow && startCol === 4) {
-                    const kingsideRookMovedFlag = (pieceColor === 'white') ? hasWhiteKingsideRookMoved : hasBlackKingsideRookMoved;
-                    const kingsideRookCol = 7;
-                    if (!kingsideRookMovedFlag && boardState[kingRow][5] === null && boardState[kingRow][6] === null &&
-                        boardState[kingRow][kingsideRookCol] && boardState[kingRow][kingsideRookCol].type === 'rook' && boardState[kingRow][kingsideRookCol].color === pieceColor) {
-                        const pathClearAndSafe =
-                            !isKingInCheck(pieceColor, boardState) &&
-                            !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState)) &&
-                            !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState));
-                        if (pathClearAndSafe) {
-                            addMove(kingRow, 6);
-                        }
+            const kingRow = (pieceColor === 'white') ? 7 : 0;
+            const kingMovedFlag = (pieceColor === 'white') ? hasWhiteKingMoved : hasBlackKingMoved;
+            if (!kingMovedFlag && startRow === kingRow && startCol === 4) {
+                const kingsideRookMovedFlag = (pieceColor === 'white') ? hasWhiteKingsideRookMoved : hasBlackKingsideRookMoved;
+                const kingsideRookCol = 7;
+                if (!kingsideRookMovedFlag && boardState[kingRow][5] === null && boardState[kingRow][6] === null &&
+                    boardState[kingRow][kingsideRookCol] && boardState[kingRow][kingsideRookCol].type === 'rook' && boardState[kingRow][kingsideRookCol].color === pieceColor) {
+                    const pathClearAndSafe =
+                        !isKingInCheck(pieceColor, boardState) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 5, boardState)) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 6, boardState));
+                    if (pathClearAndSafe) {
+                        addMove(kingRow, 6);
                     }
-                    const queensideRookMovedFlag = (pieceColor === 'white') ? hasWhiteQueensideRookMoved : hasBlackQueensideRookMoved;
-                    const queensideRookCol = 0;
-                    if (!queensideRookMovedFlag && boardState[kingRow][1] === null && boardState[kingRow][2] === null && boardState[kingRow][3] === null &&
-                        boardState[kingRow][queensideRookCol] && boardState[kingRow][queensideRookCol].type === 'rook' && boardState[kingRow][queensideRookCol].color === pieceColor) {
-                        const pathClearAndSafe =
-                            !isKingInCheck(pieceColor, boardState) &&
-                            !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState)) &&
-                            !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState));
-                        if (pathClearAndSafe) {
-                            addMove(kingRow, 2);
-                        }
+                }
+                const queensideRookMovedFlag = (pieceColor === 'white') ? hasWhiteQueensideRookMoved : hasBlackQueensideRookMoved;
+                const queensideRookCol = 0;
+                if (!queensideRookMovedFlag && boardState[kingRow][1] === null && boardState[kingRow][2] === null && boardState[kingRow][3] === null &&
+                    boardState[kingRow][queensideRookCol] && boardState[kingRow][queensideRookCol].type === 'rook' && boardState[kingRow][queensideRookCol].color === pieceColor) {
+                    const pathClearAndSafe =
+                        !isKingInCheck(pieceColor, boardState) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 3, boardState)) &&
+                        !isKingInCheck(pieceColor, simulateMove(kingRow, 4, kingRow, 2, boardState));
+                    if (pathClearAndSafe) {
+                        addMove(kingRow, 2);
                     }
                 }
             }
@@ -819,7 +817,7 @@ function showPromotionUI(pawnColor) {
         choiceDiv.dataset.pieceType = pieceType;
         choiceDiv.addEventListener('click', () => selectPromotionPiece(pieceType, pawnColor));
         const pieceImg = document.createElement('img');
-        pieceImg.src = `./images/${pawnColor}-${pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}.png`;
+        pieceImg.src = `${pawnColor}-${pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}.png`;
         pieceImg.alt = `${pawnColor} ${pieceType}`;
         choiceDiv.appendChild(pieceImg);
         promotionChoices.appendChild(choiceDiv);
