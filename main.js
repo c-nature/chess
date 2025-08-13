@@ -41,12 +41,12 @@ document.addEventListener('DOMContentLoaded', (event) => {
     initializeEvaluationElements();
     setupPieces();
     renderBoard();
-    // Add event listeners for buttons
-    newGameBtn.addEventListener('click', newGame);
-    switchSidesBtn.addEventListener('click', flipBoard);
-    levelSelect.addEventListener("change", function(){
-        selectedLevel = this.value;
-    });
+// Add event listeners for buttons
+newGameBtn.addEventListener('click', newGame);
+switchSidesBtn.addEventListener('click', flipBoard);
+levelSelect.addEventListener("change", function(){
+    selectedLevel = this.value;
+});
 });
 
 /**
@@ -121,9 +121,36 @@ function newGame() {
         <div class="square white" id="b1"><div class="coordinate file blackText">b</div><div class="piece knight" color="white"><img src="white-Knight.png" alt="White knight is placed on b1, ready for opening moves with file b labeled in black text, part of the full chessboard environment"></div></div>
         <div class="square black" id="c1"><div class="coordinate file whiteText">c</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White bishop occupies c1, positioned for diagonal play with file c labeled in white text, part of the chessboard setup"></div></div>
         <div class="square white" id="d1"><div class="coordinate file blackText">d</div><div class="piece queen" color="white"><img src="white-Queen.png" alt="White queen sits on d1 in the center of the back rank with file d labeled in black text, surrounded by other white pieces in the initial arrangement"></div></div>
-        <div class="square black" id="e1"><div class="coordinate file whiteText">e</div><div class="piece king" color="white"><img src="white-King.png" alt="White king is placed on e1, protected by surrounding white pieces, forming the central focus of the back rank in the starting position"></div></div>
+        <div class="square black" id="e1"><div class="coordinate file whiteText">e</div><div class="piece king" color="white"><img src="white-King.png" alt="White king is placed on e1, protected by surrounding pieces with file e labeled in white text, forming the central focus of the back rank in the starting position"></div></div>
+        <div class="square white" id="f1"><div class="coordinate file blackText">f</div><div class="piece bishop" color="white"><img src="white-Bishop.png" alt="White bishop stands on f1, positioned for diagonal play with file f labeled in black text, part of the full chessboard arrangement"></div></div>
+        <div class="square black" id="g1"><div class="coordinate file whiteText">g</div><div class="piece knight" color="white"><img src="white-Knight.png" alt="White knight is set on g1, ready for opening moves with file g labeled in white text, part of the chessboard environment"></div></div>
+        <div class="square white" id="h1"><div class="coordinate file blackText">h</div><div class="coordinate rank blackText">1</div><div class="piece rook" color="white"><img src="white-Rook.png" alt="White rook occupies h1 at the bottom right, defensive back rank with file h and rank 1 labeled in black text, part of a calm and orderly game start"></div></div>
+    `;
 
-        `;
+    chessBoard.innerHTML = initialBoardHTML;
+    // Reset all global state variables
+    board = [];
+    legalSquares = [];
+    isWhiteTurn = true;
+    enPassantTargetSquare = null;
+    selectedSquare = null;
+    selectedPiece = null;
+    pawnPromotionTargetSquareId = null;
+    isEngineWhite = false;
+    hasWhiteKingMoved = false;
+    hasBlackKingMoved = false;
+    hasWhiteKingsideRookMoved = false;
+    hasWhiteQueensideRookMoved = false;
+    hasBlackKingsideRookMoved = false;
+    hasBlackQueensideRookMoved = false;
+
+    // Reset UI and listeners
+    setupBoardSquares();
+    initializeBoardState();
+    setupPieces();
+    renderBoard();
+}
+
 /**
  * Flips the board and switches sides for the AI opponent.
  */
@@ -461,7 +488,6 @@ function performMove(startingSquareId, destinationSquareId, promotedTo = "") {
 function isSquareOccupied(rowIndex, colIndex, boardState = board) {
     if (rowIndex < 0 || rowIndex > 7 || colIndex < 0 || colIndex > 7) {
         return "out-of-bounds";
-
     }
     const piece = boardState[rowIndex][colIndex];
     return piece ? piece.color : "blank";
@@ -570,7 +596,7 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
                     const targetSquareId = coordsToSquareId(nextRow, c);
                     if (targetSquareId === enPassantTargetSquare) {
                         const pawnBesideRow = startRow;
-                        const pawnBesideCol = c;
+                        const pawnBesideCol = toCol;
                         const pieceBeside = boardState[pawnBesideRow][pawnBesideCol];
                         if (pieceBeside && pieceBeside.type === 'pawn' && pieceBeside.color !== pieceColor) {
                             addMove(nextRow, c);
@@ -677,9 +703,6 @@ function getPseudoLegalMoves(startRow, startCol, pieceType, pieceColor, boardSta
     }
     return moves;
 }
-
-/**
- * Generates and filters legal moves for a piece,'occhio
 
 /**
  * Generates and filters legal moves for a piece, ensuring the king is not left in check.
@@ -888,104 +911,25 @@ function generateFEN(boardState) {
 }
 
 /**
- * Gets the best move from Stockfish engine based on the current board state and difficulty level.
+ * Gets the best move from Stockfish engine based on the current board state.
  */
 function getBestMove(fen, callback) {
     if (!stockfishWorker) {
         console.error("Stockfish worker is not initialized.");
         return;
     }
-    const aiDepth = Math.max(1, Math.min(selectedLevel, 10)); // Ensure depth is between 1 and 10
-    const moves = [];
+    const aiDepth = selectedLevel;
     stockfishWorker.postMessage("position fen " + fen);
     stockfishWorker.postMessage(`go depth ${aiDepth}`);
     const listener = function(event) {
         const message = event.data;
-        if (message.startsWith("info depth " + aiDepth)) {
-            let multipvIndex = message.indexOf("multipv");
-            if (multipvIndex !== -1) {
-                let multipv = parseInt(message.slice(multipvIndex).split(" ")[1]) || 1;
-                let pvIndex = message.indexOf("pv");
-                if (pvIndex !== -1) {
-                    let pvMove = message.slice(pvIndex + 3).split(" ")[0];
-                    moves[multipv - 1] = pvMove;
-                }
-            }
-        } else if (message.startsWith("bestmove")) {
+        if (message.startsWith("bestmove")) {
+            const bestMove = message.split(" ")[1];
             stockfishWorker.removeEventListener('message', listener);
-            let selectedMove = selectMoveBasedOnLevel(moves, selectedLevel, fen);
-            callback(selectedMove);
+            callback(bestMove);
         }
     };
     stockfishWorker.addEventListener('message', listener);
-}
-
-/**
- * Selects a move based on the difficulty level.
- */
-function selectMoveBasedOnLevel(moves, level, fen) {
-    // If no moves are available, return the best move from Stockfish
-    if (!moves || moves.length === 0 || moves[0] === "(none)") {
-        return moves[0] || "(none)";
-    }
-
-    // High levels (8–10): Always pick the best move
-    if (level >= 8) {
-        return moves[0];
-    }
-
-    // Medium levels (4–7): Occasionally pick the second or third move
-    if (level >= 4) {
-        const random = Math.random();
-        if (random < 0.2 && moves[1]) return moves[1]; // 20% chance for second-best move
-        if (random < 0.3 && moves[2]) return moves[2]; // 10% chance for third-best move
-        return moves[0]; // 70% chance for best move
-    }
-
-    // Low levels (1–3): Frequently pick worse moves or blunder
-    const blunderChance = 0.4 - (level - 1) * 0.1; // 40% at Level 1, 30% at Level 2, 20% at Level 3
-    if (Math.random() < blunderChance) {
-        const legalMoves = getAllLegalMoves(fen);
-        if (legalMoves.length > 0) {
-            // Filter out the top moves to ensure a blunder
-            const nonTopMoves = legalMoves.filter(move => !moves.includes(move));
-            if (nonTopMoves.length > 0) {
-                return nonTopMoves[Math.floor(Math.random() * nonTopMoves.length)];
-            }
-        }
-    }
-
-    // Otherwise, pick from the top moves with higher chance for worse moves
-    const random = Math.random();
-    if (random < 0.5 && moves[1]) return moves[1]; // 50% chance for second-best move
-    if (random < 0.8 && moves[2]) return moves[2]; // 30% chance for third-best move
-    return moves[0]; // 20% chance for best move
-}
-
-/**
- * Gets all legal moves for the current player from the board state.
- */
-function getAllLegalMoves(fen) {
-    const legalMoves = [];
-    const boardState = board; // Use current board state
-    const currentPlayerColor = isWhiteTurn ? 'white' : 'black';
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-            const piece = boardState[r][c];
-            if (piece && piece.color === currentPlayerColor) {
-                const pieceSquareId = coordsToSquareId(r, c);
-                const dummyPieceElement = {
-                    classList: [null, piece.type],
-                    getAttribute: (attr) => attr === 'color' ? piece.color : null
-                };
-                const movesForPiece = getLegalMovesForPiece(pieceSquareId, dummyPieceElement);
-                movesForPiece.forEach(move => {
-                    legalMoves.push(pieceSquareId + move);
-                });
-            }
-        }
-    }
-    return legalMoves;
 }
 
 /**
@@ -1056,7 +1000,6 @@ function initializeEvaluationElements() {
         evaluationElements.lineElements[i-1] = document.getElementById(`line${i}`);
     }
 }
-
 function displayEvaluation(lines, evaluations, scoreString) {
     if (!evaluationElements) {
         initializeEvaluationElements();
@@ -1079,7 +1022,6 @@ function displayEvaluation(lines, evaluations, scoreString) {
         console.error('Chessboard initialization error:', error);
     }
 }
-
 function updateEvaluationBar(evaluation, scoreString) {
     const { blackBar, evalNum } = evaluationElements;
     if (typeof evaluation === 'number') {
@@ -1095,7 +1037,6 @@ function updateEvaluationBar(evaluation, scoreString) {
         evalNum.textContent = evaluation;
     }
 }
-
 function updateEvaluationLines(lines, evaluations) {
     const maxLines = Math.min(lines.length, evaluations.length, 3);
     for (let i = 0; i < 3; i++) {
@@ -1112,7 +1053,6 @@ function updateEvaluationLines(lines, evaluations) {
         }
     }
 }
-
 function updateEvaluationText(evaluation, scoreString) {
     const { evalMain, evalText } = evaluationElements;
     if (!evalMain || !evalText) return;
@@ -1141,5 +1081,4 @@ function updateEvaluationText(evaluation, scoreString) {
             evalText.textContent = "Black is winning!";
         }
     }
-  }
 }
