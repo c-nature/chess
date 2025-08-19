@@ -55,7 +55,7 @@ body {
   color: #FFD700;
 }
 
-.buttonContainer button, .buttonContainer select {
+.buttonContainer button {
     width: 200px;
     height: 60px;
     border: 2px solid #FFD700;
@@ -74,11 +74,17 @@ body {
     color: black;
 }
 
-.level-select {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    margin-bottom: 10px;
+.buttonContainer .level-select select {
+    width: 100px;
+    height: 60px;
+    border: 2px solid #000000; /* Example: Black border */
+    cursor: pointer;
+    border-radius: 20px;
+    background-color: whitesmoke; /* Example: Light background */
+    color: black; /* Example: Black text */
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.9rem;
+    padding-left: 15px; /* Helps center the text */
 }
 
 /* Chess Board and Pieces */
