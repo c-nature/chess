@@ -829,7 +829,11 @@ function selectMoveBasedOnLevel(moves, level, fen) {
             }
         }
     }
+<<<<<<< HEAD
     // Fallback if no blunder move is found, or for non-blunder moves at low levels
+=======
+    // Otherwise, pick from the top moves with higher chance for worse moves
+>>>>>>> parent of 3f53378 (adjusting difficulty settings)
     const random = Math.random();
     if (random < 0.5 && moves[1]) return moves[1]; // 50% chance for second-best move
     if (random < 0.8 && moves[2]) return moves[2]; // 30% chance for third-best move
