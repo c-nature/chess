@@ -51,15 +51,17 @@ body {
 }
 
 .buttonContainer button, .buttonContainer select {
-    width: 120px;
-    height: 40px;
-    border: none;
+    width: 200px;
+    height: 60px;
+    border: 2px solid #FFD700;
     cursor: pointer;
-    border-radius: 5px;
+    border-radius: 20px;
     background-color: rgb(87, 64, 64);
-    color: white;
-    font-weight: bold;
-    font-family: 'Roboto', sans-serif;
+    color: #FFD700;
+    transition: background-color 0.2s ease;
+    font-weight: normal;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.9rem;
 }
 
 .buttonContainer select {
