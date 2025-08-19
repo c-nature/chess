@@ -49,6 +49,11 @@ body {
     margin: 20px;
     gap: 10px;
 }
+.level-select span {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3rem; /* This matches your button font size */
+  color: #FFD700;
+}
 
 .buttonContainer button, .buttonContainer select {
     width: 200px;
@@ -73,7 +78,7 @@ body {
     display: flex;
     align-items: center;
     gap: 5px;
-    margin-bottom: 5px;
+    margin-bottom: 10px;
 }
 
 /* Chess Board and Pieces */
@@ -344,7 +349,7 @@ body {
     .level-select {
         flex-direction: column;
         align-items: flex-start;
-        gap: 2px;
+        gap: 10px;
     }
     .chessBoard {
         width: 90vw;
