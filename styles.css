@@ -1,6 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap');
 
 /* General Layout and Styling */
 body {
@@ -324,40 +323,6 @@ body {
 
 #line1, #line2, #line3 {
     min-width: 400px;
-}
-
-/* --- Styles for the standalone badge notification pop-up --- */
-#badge-notification {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.5);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.5s, transform 0.5s;
-    background-color: transparent;
-    padding: 0;
-    z-index: 2000;
-    text-align: center;
-    font-family: 'Luckiest Guy', cursive;
-}
-#badge-notification.show {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-    pointer-events: auto;
-}
-/* FIX: Enhance text shadow for better visibility without a background */
-#badge-notification h2, #badge-notification p {
-    text-shadow: 
-        -2px -2px 0 #000, 2px -2px 0 #000, 
-        -2px 2px 0 #000, 2px 2px 0 #000, 
-        4px 4px 8px rgba(0,0,0,0.6);
-}
-#badge-notification h2 {
-    font-size: 2.5rem; /* Slightly smaller to fit better */
-}
-#badge-notification p {
-    font-size: 2rem; /* Slightly smaller to fit better */
 }
 
 /* Media Queries */
