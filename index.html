@@ -5,12 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Challenge</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- Font imports from your CSS -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-    <!-- Confetti.js library for badge animations -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 </head>
 <body>
     <h1 class="game-title">Chess Challenge</h1>
@@ -283,23 +277,6 @@
             <!-- Choices will be dynamically added here by JavaScript -->
         </div>
     </div>
-
-    <!-- Message box for check, checkmate, and stalemate alerts -->
-    <div id="message-box"></div>
-
-    <!-- NEW: Badge Notification Pop-up -->
-    <div id="badge-notification" class="hidden">
-        <h2>New Badge Unlocked!</h2>
-        <img id="badge-notification-img" src="" alt="New Badge">
-        <p id="badge-notification-name"></p>
-    </div>
-
-    <!-- NEW: Audio element for the badge sound effect -->
-    <audio id="badgeSoundElement" preload="auto">
-        <source src="https://c-nature.github.io/smartypants/badge.wav" type="audio/wav">
-        <source src="https://c-nature.github.io/smartypants/badge.mp3" type="audio/mpeg">
-        Your browser does not support the audio element.
-    </audio>
 
     <script src="main.js"></script>
 </body>
