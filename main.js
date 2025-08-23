@@ -34,94 +34,19 @@ const promotionOverlay = document.getElementById('promotion-overlay');
 const promotionChoices = document.querySelector('.promotion-choices');
 let evaluationElements = null;
 
-// Badge-related elements and constants (copied from Algebra Challenge)
-const APP_API_BASE_URL = 'https://smartypantsbe.onrender.com/api/user';
-
-function showBadgeNotification(badgeName, badgeDisplayName) {
-    const badgeNotification = document.getElementById('badge-notification');
-    const badgeNotificationImg = document.getElementById('badge-notification-img');
-    const badgeNotificationName = document.getElementById('badge-notification-name');
-    const badgeSoundElement = document.getElementById('badgeSoundElement');
-
-    if (badgeSoundElement) {
-        badgeSoundElement.currentTime = 0;
-        badgeSoundElement.play().catch(e => console.warn("Error playing badge sound:", e));
-    }
-    if (typeof confetti === 'function') {
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-    }
-    badgeNotificationImg.src = `https://c-nature.github.io/smartypants/Badges/${badgeName}.png`;
-    badgeNotificationName.textContent = badgeDisplayName;
-    badgeNotification.classList.remove('hidden');
-    setTimeout(() => { badgeNotification.classList.add('show'); }, 10);
-    setTimeout(() => {
-        badgeNotification.classList.remove('show');
-        setTimeout(() => { badgeNotification.classList.add('hidden'); }, 500);
-    }, 4000);
-}
-
-async function awardBadge(badgeName, badgeDisplayName) {
-    if (window.self !== window.top && window.parent.awardBadge) {
-        console.log(`Awarding badge '${badgeName}' via parent window.`);
-        window.parent.awardBadge(badgeName, badgeDisplayName);
-        return;
-    }
-    console.log(`Awarding badge '${badgeName}' via direct API call.`);
-    try {
-        const token = localStorage.getItem('token');
-        const userString = localStorage.getItem('user');
-        if (!token || !userString) {
-            console.log("Direct badge award failed: User not logged in.");
-            return;
-        }
-        const user = JSON.parse(userString);
-        if (user.badges && user.badges.includes(badgeName)) {
-            console.log(`Direct badge award skipped: User already has badge '${badgeName}'.`);
-            return;
-        }
-        const response = await fetch(`${APP_API_BASE_URL}/award-badge`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ userId: user._id, badgeName: badgeName })
-        });
-        const result = await response.json();
-        if (result.status === "Success" && !result.alreadyAwarded) {
-            console.log(`Badge '${badgeName}' awarded successfully via API.`);
-            user.badges.push(badgeName);
-            localStorage.setItem('user', JSON.stringify(user));
-            showBadgeNotification(badgeName, badgeDisplayName);
-        } else {
-            console.log("Badge already awarded or other error.", result.message);
-        }
-    } catch (error) {
-        console.error("Error awarding badge directly via API:", error);
-    }
-}
-
 // Ensure DOM is fully loaded before setting up event listeners
 document.addEventListener('DOMContentLoaded', (event) => {
-    // Handle URL parameters for auth in standalone mode (copied from Algebra Challenge)
-    const urlParams = new URLSearchParams(window.location.search);
-    const authToken = urlParams.get('authToken');
-    const userData = urlParams.get('userData');
-    if (authToken && userData) {
-        console.log("Auth data found in URL, setting up standalone session...");
-        localStorage.setItem('token', authToken);
-        localStorage.setItem('user', userData);
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
     setupBoardSquares();
     initializeBoardState();
     initializeEvaluationElements();
     setupPieces();
     renderBoard();
-    // Add event listeners for buttons
-    newGameBtn.addEventListener('click', newGame);
-    switchSidesBtn.addEventListener('click', flipBoard);
-    levelSelect.addEventListener("change", function(){
-        selectedLevel = this.value;
-    });
+// Add event listeners for buttons
+newGameBtn.addEventListener('click', newGame);
+switchSidesBtn.addEventListener('click', flipBoard);
+levelSelect.addEventListener("change", function(){
+    selectedLevel = this.value;
+});
 });
 
 /**
@@ -363,7 +288,7 @@ function renderBoard() {
                 pieceDiv.setAttribute('draggable', true);
 
                 const pieceImg = document.createElement('img');
-                pieceImg.src = `./images/${piece.color}-${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.png`;
+                pieceImg.src = `${piece.color}-${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.png`;
                 pieceImg.alt = `${piece.color} ${piece.type}`;
                 pieceImg.setAttribute('draggable', false);
 
@@ -833,19 +758,6 @@ function checkGameStatus() {
     }
     if (kingInCheck && !hasLegalMoves) {
         showMessage(`Checkmate! ${opponentPlayerColor.toUpperCase()} wins!`);
-        // Badge awarding logic: Check if the player (not engine) won
-        const playerColor = isEngineWhite ? 'black' : 'white';
-        if (opponentPlayerColor === playerColor) {
-            let badgeName, badgeDisplayName;
-            if (playerColor === 'white') {
-                badgeName = 'winchessplayingwhite';
-                badgeDisplayName = 'Beat Stockfish Playing White';
-            } else {
-                badgeName = 'winchessplayingblack';
-                badgeDisplayName = 'Beat Stockfish Playing Black';
-            }
-            awardBadge(badgeName, badgeDisplayName);
-        }
     } else if (!kingInCheck && !hasLegalMoves) {
         showMessage("Stalemate! It's a draw.");
     } else if (kingInCheck) {
@@ -905,7 +817,7 @@ function showPromotionUI(pawnColor) {
         choiceDiv.dataset.pieceType = pieceType;
         choiceDiv.addEventListener('click', () => selectPromotionPiece(pieceType, pawnColor));
         const pieceImg = document.createElement('img');
-        pieceImg.src = `./images/${pawnColor}-${pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}.png`;
+        pieceImg.src = `${pawnColor}-${pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}.png`;
         pieceImg.alt = `${pawnColor} ${pieceType}`;
         choiceDiv.appendChild(pieceImg);
         promotionChoices.appendChild(choiceDiv);

@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Challenge</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- Confetti.js library (for standalone badge notifications) -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-    <!-- Google Fonts for Luckiest Guy (for badge notification) -->
-    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet">
 </head>
 <body>
     <h1 class="game-title">Chess Challenge</h1>
@@ -281,18 +277,6 @@
             <!-- Choices will be dynamically added here by JavaScript -->
         </div>
     </div>
-
-    <!-- Standalone Badge Notification Pop-up -->
-    <div id="badge-notification" class="hidden flex flex-col items-center">
-        <h2 class="text-3xl font-bold text-yellow-300 mb-4">New Badge Unlocked!</h2>
-        <img id="badge-notification-img" src="" alt="New Badge" class="w-48 h-48 mb-4">
-        <p id="badge-notification-name" class="text-2xl text-white font-semibold"></p>
-    </div>
-
-    <!-- Audio element for badge sound -->
-    <audio id="badgeSoundElement" preload="auto">
-        <source src="https://c-nature.github.io/smartypants/badge.wav" type="audio/wav">
-    </audio>
 
     <script src="main.js"></script>
 </body>
