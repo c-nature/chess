@@ -858,7 +858,7 @@ function showPromotionUI(pawnColor) {
         choiceDiv.dataset.pieceType = pieceType;
         choiceDiv.addEventListener('click', () => selectPromotionPiece(pieceType, pawnColor));
         const pieceImg = document.createElement('img');
-        pieceImg.src = `./images/${pawnColor}-${pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}.png`;
+        pieceImg.src = `https://c-nature.github.io/chess/images/${pawnColor}-${pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}.png`;
         pieceImg.alt = `${pawnColor} ${pieceType}`;
         choiceDiv.appendChild(pieceImg);
         promotionChoices.appendChild(choiceDiv);
