@@ -34,94 +34,19 @@ const promotionOverlay = document.getElementById('promotion-overlay');
 const promotionChoices = document.querySelector('.promotion-choices');
 let evaluationElements = null;
 
-// Badge-related elements and constants
-const APP_API_BASE_URL = 'https://smartypantsbe.onrender.com/api/user';
-
-function showBadgeNotification(badgeName, badgeDisplayName) {
-    const badgeNotification = document.getElementById('badge-notification');
-    const badgeNotificationImg = document.getElementById('badge-notification-img');
-    const badgeNotificationName = document.getElementById('badge-notification-name');
-    const badgeSoundElement = document.getElementById('badgeSoundElement');
-
-    if (badgeSoundElement) {
-        badgeSoundElement.currentTime = 0;
-        badgeSoundElement.play().catch(e => console.warn("Error playing badge sound:", e));
-    }
-    if (typeof confetti === 'function') {
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-    }
-    badgeNotificationImg.src = `https://c-nature.github.io/smartypants/Badges/${badgeName}.png`;
-    badgeNotificationName.textContent = badgeDisplayName;
-    badgeNotification.classList.remove('hidden');
-    setTimeout(() => { badgeNotification.classList.add('show'); }, 10);
-    setTimeout(() => {
-        badgeNotification.classList.remove('show');
-        setTimeout(() => { badgeNotification.classList.add('hidden'); }, 500);
-    }, 4000);
-}
-
-async function awardBadge(badgeName, badgeDisplayName) {
-    if (window.self !== window.top && window.parent.awardBadge) {
-        console.log(`Awarding badge '${badgeName}' via parent window.`);
-        window.parent.awardBadge(badgeName, badgeDisplayName);
-        return;
-    }
-    console.log(`Awarding badge '${badgeName}' via direct API call.`);
-    try {
-        const token = localStorage.getItem('token');
-        const userString = localStorage.getItem('user');
-        if (!token || !userString) {
-            console.log("Direct badge award failed: User not logged in.");
-            return;
-        }
-        const user = JSON.parse(userString);
-        if (user.badges && user.badges.includes(badgeName)) {
-            console.log(`Direct badge award skipped: User already has badge '${badgeName}'.`);
-            return;
-        }
-        const response = await fetch(`${APP_API_BASE_URL}/award-badge`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ userId: user._id, badgeName: badgeName })
-        });
-        const result = await response.json();
-        if (result.status === "Success" && !result.alreadyAwarded) {
-            console.log(`Badge '${badgeName}' awarded successfully via API.`);
-            user.badges.push(badgeName);
-            localStorage.setItem('user', JSON.stringify(user));
-            showBadgeNotification(badgeName, badgeDisplayName);
-        } else {
-            console.log("Badge already awarded or other error.", result.message);
-        }
-    } catch (error) {
-        console.error("Error awarding badge directly via API:", error);
-    }
-}
-
 // Ensure DOM is fully loaded before setting up event listeners
 document.addEventListener('DOMContentLoaded', (event) => {
-    // Handle URL parameters for auth in standalone mode
-    const urlParams = new URLSearchParams(window.location.search);
-    const authToken = urlParams.get('authToken');
-    const userData = urlParams.get('userData');
-    if (authToken && userData) {
-        console.log("Auth data found in URL, setting up standalone session...");
-        localStorage.setItem('token', authToken);
-        localStorage.setItem('user', userData);
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
     setupBoardSquares();
     initializeBoardState();
     initializeEvaluationElements();
     setupPieces();
     renderBoard();
-    // Add event listeners for buttons
-    newGameBtn.addEventListener('click', newGame);
-    switchSidesBtn.addEventListener('click', flipBoard);
-    levelSelect.addEventListener("change", function(){
-        selectedLevel = this.value;
-    });
+// Add event listeners for buttons
+newGameBtn.addEventListener('click', newGame);
+switchSidesBtn.addEventListener('click', flipBoard);
+levelSelect.addEventListener("change", function(){
+    selectedLevel = this.value;
+});
 });
 
 /**
@@ -132,74 +57,74 @@ function newGame() {
     const initialBoardHTML = `
         <div class="square white" id="a8">
             <div class="coordinate rank blackText">8</div>
-            <div class="piece rook" color="black"><img src="https://c-nature.github.io/chess/images/black-Rook.png" alt="Black rook stands on square a8 at the top left of the chessboard, part of the back rank with rank 8 labeled in black text, surrounded by other black pieces in a calm and orderly game start"></div>
+            <div class="piece rook" color="black"><img src="/images/black-Rook.png" alt="Black rook stands on square a8 at the top left of the chessboard, part of the back rank with rank 8 labeled in black text, surrounded by other black pieces in a calm and orderly game start"></div>
         </div>
         <div class="square black" id="b8">
-            <div class="piece knight" color="black"><img src="https://c-nature.github.io/chess/images/black-Knight.png" alt="Black knight is positioned on b8, ready for opening moves, part of the full set of black pieces on the back rank in a standard chessboard setup"></div>
+            <div class="piece knight" color="black"><img src="/images/black-Knight.png" alt="Black knight is positioned on b8, ready for opening moves, part of the full set of black pieces on the back rank in a standard chessboard setup"></div>
         </div>
         <div class="square white" id="c8">
-            <div class="piece bishop" color="black"><img src="https://c-nature.github.io/chess/images/black-Bishop.png" alt="Black bishop occupies c8, prepared for diagonal movement, placed among other black pieces on the back rank of the chessboard"></div>
+            <div class="piece bishop" color="black"><img src="/images/black-Bishop.png" alt="Black bishop occupies c8, prepared for diagonal movement, placed among other black pieces on the back rank of the chessboard"></div>
         </div>
         <div class="square black" id="d8">
-            <div class="piece queen" color="black"><img src="https://c-nature.github.io/chess/images/black-Queen.png" alt="Black queen sits on d8 in the center of the back rank, surrounded by fellow black pieces, part of the initial chessboard arrangement"></div>
+            <div class="piece queen" color="black"><img src="/images/black-Queen.png" alt="Black queen sits on d8 in the center of the back rank, surrounded by fellow black pieces, part of the initial chessboard arrangement"></div>
         </div>
         <div class="square white" id="e8">
-            <div class="piece king" color="black"><img src="https://c-nature.github.io/chess/images/black-King.png" alt="Black king is placed on e8, protected by surrounding black pieces, forming the central focus of the back rank in the starting position"></div>
+            <div class="piece king" color="black"><img src="/images/black-King.png" alt="Black king is placed on e8, protected by surrounding black pieces, forming the central focus of the back rank in the starting position"></div>
         </div>
         <div class="square black" id="f8">
-            <div class="piece bishop" color="black"><img src="https://c-nature.github.io/chess/images/black-Bishop.png" alt="Black bishop stands on f8, ready for diagonal play, part of the orderly arrangement of black pieces on the back rank"></div>
+            <div class="piece bishop" color="black"><img src="/images/black-Bishop.png" alt="Black bishop stands on f8, ready for diagonal play, part of the orderly arrangement of black pieces on the back rank"></div>
         </div>
         <div class="square white" id="g8">
-            <div class="piece knight" color="black"><img src="https://c-nature.github.io/chess/images/black-Knight.png" alt="Black knight is set on g8, prepared for opening moves, positioned among other black pieces in the initial chessboard setup"></div>
+            <div class="piece knight" color="black"><img src="/images/black-Knight.png" alt="Black knight is set on g8, prepared for opening moves, positioned among other black pieces in the initial chessboard setup"></div>
         </div>
         <div class="square black" id="h8">
-            <div class="piece rook" color="black"><img src="https://c-nature.github.io/chess/images/black-Rook.png" alt="Black rook occupies h8 at the top right corner, part of the defensive back rank, surrounded by black pieces in a calm chessboard environment"></div>
+            <div class="piece rook" color="black"><img src="/images/black-Rook.png" alt="Black rook occupies h8 at the top right corner, part of the defensive back rank, surrounded by black pieces in a calm chessboard environment"></div>
         </div>
         <div class="square black" id="a7">
             <div class="coordinate rank whiteText">7</div>
-            <div class="piece pawn" color="black"><img src="https://c-nature.github.io/chess/images/black-Pawn.png" alt="Black pawn stands on a7 in front of the rook, forming the front line of black pieces with rank 7 labeled in white text, part of the standard chessboard setup"></div>
+            <div class="piece pawn" color="black"><img src="/images/black-Pawn.png" alt="Black pawn stands on a7 in front of the rook, forming the front line of black pieces with rank 7 labeled in white text, part of the standard chessboard setup"></div>
         </div>
         <div class="square white" id="b7">
-            <div class="piece pawn" color="black"><img src="https://c-nature.github.io/chess/images/black-Pawn.png" alt="Black pawn is placed on b7, part of the row of pawns forming the defensive line for black, set in the initial chessboard arrangement"></div>
+            <div class="piece pawn" color="black"><img src="/images/black-Pawn.png" alt="Black pawn is placed on b7, part of the row of pawns forming the defensive line for black, set in the initial chessboard arrangement"></div>
         </div>
         <div class="square black" id="c7">
-            <div class="piece pawn" color="black"><img src="https://c-nature.github.io/chess/images/black-Pawn.png" alt="Black pawn occupies c7, ready for its opening move, positioned among other black pawns in the starting chessboard environment"></div>
+            <div class="piece pawn" color="black"><img src="/images/black-Pawn.png" alt="Black pawn occupies c7, ready for its opening move, positioned among other black pawns in the starting chessboard environment"></div>
         </div>
         <div class="square white" id="d7">
-            <div class="piece pawn" color="black"><img src="https://c-nature.github.io/chess/images/black-Pawn.png" alt="Black pawn sits on d7 in front of the queen, part of the pawn row in the initial chessboard setup"></div>
+            <div class="piece pawn" color="black"><img src="/images/black-Pawn.png" alt="Black pawn sits on d7 in front of the queen, part of the pawn row in the initial chessboard setup"></div>
         </div>
         <div class="square black" id="e7">
-            <div class="piece pawn" color="black"><img src="https://c-nature.github.io/chess/images/black-Pawn.png" alt="Black pawn is placed on e7 directly in front of the king, forming part of the standard defensive line in the chessboard starting position"></div>
+            <div class="piece pawn" color="black"><img src="/images/black-Pawn.png" alt="Black pawn is placed on e7 directly in front of the king, forming part of the standard defensive line in the chessboard starting position"></div>
         </div>
         <div class="square white" id="f7">
-            <div class="piece pawn" color="black"><img src="https://c-nature.github.io/chess/images/black-Pawn.png" alt="Black pawn stands on f7, part of the row of pawns defending the back rank, set in the initial chessboard environment"></div>
+            <div class="piece pawn" color="black"><img src="/images/black-Pawn.png" alt="Black pawn stands on f7, part of the row of pawns defending the back rank, set in the initial chessboard environment"></div>
         </div>
         <div class="square black" id="g7">
-            <div class="piece pawn" color="black"><img src="https://c-nature.github.io/chess/images/black-Pawn.png" alt="Black pawn occupies g7, ready for its opening move, part of the defensive line of black pawns in the chessboard setup"></div>
+            <div class="piece pawn" color="black"><img src="/images/black-Pawn.png" alt="Black pawn occupies g7, ready for its opening move, part of the defensive line of black pawns in the chessboard setup"></div>
         </div>
         <div class="square white" id="h7">
-            <div class="piece pawn" color="black"><img src="https://c-nature.github.io/chess/images/black-Pawn.png" alt="Black pawn sits on h7 at the far right, forming the edge of black's defensive line in the full chessboard arrangement"></div>
+            <div class="piece pawn" color="black"><img src="/images/black-Pawn.png" alt="Black pawn sits on h7 at the far right, forming the edge of black's defensive line in the full chessboard arrangement"></div>
         </div>
         <div class="square white" id="a6"></div><div class="square black" id="b6"></div><div class="square white" id="c6"></div><div class="square black" id="d6"></div><div class="square white" id="e6"></div><div class="square black" id="f6"></div><div class="square white" id="g6"></div><div class="square black" id="h6"></div>
         <div class="square black" id="a5"></div><div class="square white" id="b5"></div><div class="square black" id="c5"></div><div class="square white" id="d5"></div><div class="square black" id="e5"></div><div class="square white" id="f5"></div><div class="square black" id="g5"></div><div class="square white" id="h5"></div>
         <div class="square white" id="a4"></div><div class="square black" id="b4"></div><div class="square white" id="c4"></div><div class="square black" id="d4"></div><div class="square white" id="e4"></div><div class="square black" id="f4"></div><div class="square white" id="g4"></div><div class="square black" id="h4"></div>
         <div class="square black" id="a3"></div><div class="square white" id="b3"></div><div class="square black" id="c3"></div><div class="square white" id="d3"></div><div class="square black" id="e3"></div><div class="square white" id="f3"></div><div class="square black" id="g3"></div><div class="square white" id="h3"></div>
-        <div class="square white" id="a2"><div class="piece pawn" color="white"><img src="https://c-nature.github.io/chess/images/white-Pawn.png" alt="White pawn stands on a2 at the bottom left, part of white's front line in the initial chessboard setup"></div></div>
-        <div class="square black" id="b2"><div class="piece pawn" color="white"><img src="https://c-nature.github.io/chess/images/white-Pawn.png" alt="White pawn is placed on b2, ready for its opening move, part of the row of white pawns in the starting position"></div></div>
-        <div class="square white" id="c2"><div class="piece pawn" color="white"><img src="https://c-nature.github.io/chess/images/white-Pawn.png" alt="White pawn occupies c2, positioned for advance, part of the full chessboard environment"></div></div>
-        <div class="square black" id="d2"><div class="piece pawn" color="white"><img src="https://c-nature.github.io/chess/images/white-Pawn.png" alt="White pawn sits on d2 in front of the queen, forming part of the defensive line in the chessboard setup"></div></div>
-        <div class="square white" id="e2"><div class="piece pawn" color="white"><img src="https://c-nature.github.io/chess/images/white-Pawn.png" alt="White pawn is placed on e2 directly in front of the king, part of the standard chessboard arrangement"></div></div>
-        <div class="square black" id="f2"><div class="piece pawn" color="white"><img src="https://c-nature.github.io/chess/images/white-Pawn.png" alt="White pawn stands on f2, part of the row of pawns defending the back rank, set in the initial chessboard environment"></div></div>
-        <div class="square white" id="g2"><div class="piece pawn" color="white"><img src="https://c-nature.github.io/chess/images/white-Pawn.png" alt="White pawn occupies g2, ready for its opening move, part of the defensive line of white pawns in the chessboard setup"></div></div>
-        <div class="square black" id="h2"><div class="coordinate rank whiteText">2</div><div class="piece pawn" color="white"><img src="https://c-nature.github.io/chess/images/white-Pawn.png" alt="White pawn sits on h2 at the far right, forming the edge of white's defensive line with rank 2 labeled in white text, part of the full chessboard arrangement"></div></div>
-        <div class="square black" id="a1"><div class="coordinate file whiteText">a</div><div class="piece rook" color="white"><img src="https://c-nature.github.io/chess/images/white-Rook.png" alt="White rook stands on a1 at the bottom left, positioned for defense with file a labeled in white text, part of the initial chessboard setup"></div></div>
-        <div class="square white" id="b1"><div class="coordinate file blackText">b</div><div class="piece knight" color="white"><img src="https://c-nature.github.io/chess/images/white-Knight.png" alt="White knight is placed on b1, ready for opening moves with file b labeled in black text, part of the full chessboard environment"></div></div>
-        <div class="square black" id="c1"><div class="coordinate file whiteText">c</div><div class="piece bishop" color="white"><img src="https://c-nature.github.io/chess/images/white-Bishop.png" alt="White bishop occupies c1, positioned for diagonal play with file c labeled in white text, part of the chessboard setup"></div></div>
-        <div class="square white" id="d1"><div class="coordinate file blackText">d</div><div class="piece queen" color="white"><img src="https://c-nature.github.io/chess/images/white-Queen.png" alt="White queen sits on d1 in the center of the back rank with file d labeled in black text, surrounded by other white pieces in the initial arrangement"></div></div>
-        <div class="square black" id="e1"><div class="coordinate file whiteText">e</div><div class="piece king" color="white"><img src="https://c-nature.github.io/chess/images/white-King.png" alt="White king is placed on e1, protected by surrounding pieces with file e labeled in white text, forming the central focus of the back rank in the starting position"></div></div>
-        <div class="square white" id="f1"><div class="coordinate file blackText">f</div><div class="piece bishop" color="white"><img src="https://c-nature.github.io/chess/images/white-Bishop.png" alt="White bishop stands on f1, positioned for diagonal play with file f labeled in black text, part of the full chessboard arrangement"></div></div>
-        <div class="square black" id="g1"><div class="coordinate file whiteText">g</div><div class="piece knight" color="white"><img src="https://c-nature.github.io/chess/images/white-Knight.png" alt="White knight is set on g1, ready for opening moves with file g labeled in white text, part of the chessboard environment"></div></div>
-        <div class="square white" id="h1"><div class="coordinate file blackText">h</div><div class="coordinate rank blackText">1</div><div class="piece rook" color="white"><img src="https://c-nature.github.io/chess/images/white-Rook.png" alt="White rook occupies h1 at the bottom right, defensive back rank with file h and rank 1 labeled in black text, part of a calm and orderly game start"></div></div>
+        <div class="square white" id="a2"><div class="piece pawn" color="white"><img src="/images/white-Pawn.png" alt="White pawn stands on a2 at the bottom left, part of white's front line in the initial chessboard setup"></div></div>
+        <div class="square black" id="b2"><div class="piece pawn" color="white"><img src="/images/white-Pawn.png" alt="White pawn is placed on b2, ready for its opening move, part of the row of white pawns in the starting position"></div></div>
+        <div class="square white" id="c2"><div class="piece pawn" color="white"><img src="/images/white-Pawn.png" alt="White pawn occupies c2, positioned for advance, part of the full chessboard environment"></div></div>
+        <div class="square black" id="d2"><div class="piece pawn" color="white"><img src="/images/white-Pawn.png" alt="White pawn sits on d2 in front of the queen, forming part of the defensive line in the chessboard setup"></div></div>
+        <div class="square white" id="e2"><div class="piece pawn" color="white"><img src="/images/white-Pawn.png" alt="White pawn is placed on e2 directly in front of the king, part of the standard chessboard arrangement"></div></div>
+        <div class="square black" id="f2"><div class="piece pawn" color="white"><img src="/images/white-Pawn.png" alt="White pawn stands on f2, part of the row of pawns defending the back rank, set in the initial chessboard environment"></div></div>
+        <div class="square white" id="g2"><div class="piece pawn" color="white"><img src="/images/white-Pawn.png" alt="White pawn occupies g2, ready for its opening move, part of the defensive line of white pawns in the chessboard setup"></div></div>
+        <div class="square black" id="h2"><div class="coordinate rank whiteText">2</div><div class="piece pawn" color="white"><img src="/images/white-Pawn.png" alt="White pawn sits on h2 at the far right, forming the edge of white's defensive line with rank 2 labeled in white text, part of the full chessboard arrangement"></div></div>
+        <div class="square black" id="a1"><div class="coordinate file whiteText">a</div><div class="piece rook" color="white"><img src="/images/white-Rook.png" alt="White rook stands on a1 at the bottom left, positioned for defense with file a labeled in white text, part of the initial chessboard setup"></div></div>
+        <div class="square white" id="b1"><div class="coordinate file blackText">b</div><div class="piece knight" color="white"><img src="/imageswhite-Knight.png" alt="White knight is placed on b1, ready for opening moves with file b labeled in black text, part of the full chessboard environment"></div></div>
+        <div class="square black" id="c1"><div class="coordinate file whiteText">c</div><div class="piece bishop" color="white"><img src="/images/white-Bishop.png" alt="White bishop occupies c1, positioned for diagonal play with file c labeled in white text, part of the chessboard setup"></div></div>
+        <div class="square white" id="d1"><div class="coordinate file blackText">d</div><div class="piece queen" color="white"><img src="/images/white-Queen.png" alt="White queen sits on d1 in the center of the back rank with file d labeled in black text, surrounded by other white pieces in the initial arrangement"></div></div>
+        <div class="square black" id="e1"><div class="coordinate file whiteText">e</div><div class="piece king" color="white"><img src="/images/white-King.png" alt="White king is placed on e1, protected by surrounding pieces with file e labeled in white text, forming the central focus of the back rank in the starting position"></div></div>
+        <div class="square white" id="f1"><div class="coordinate file blackText">f</div><div class="piece bishop" color="white"><img src="/images/white-Bishop.png" alt="White bishop stands on f1, positioned for diagonal play with file f labeled in black text, part of the full chessboard arrangement"></div></div>
+        <div class="square black" id="g1"><div class="coordinate file whiteText">g</div><div class="piece knight" color="white"><img src="/images/white-Knight.png" alt="White knight is set on g1, ready for opening moves with file g labeled in white text, part of the chessboard environment"></div></div>
+        <div class="square white" id="h1"><div class="coordinate file blackText">h</div><div class="coordinate rank blackText">1</div><div class="piece rook" color="white"><img src="/images/white-Rook.png" alt="White rook occupies h1 at the bottom right, defensive back rank with file h and rank 1 labeled in black text, part of a calm and orderly game start"></div></div>
     `;
 
     chessBoard.innerHTML = initialBoardHTML;
@@ -363,7 +288,7 @@ function renderBoard() {
                 pieceDiv.setAttribute('draggable', true);
 
                 const pieceImg = document.createElement('img');
-                pieceImg.src = `https://c-nature.github.io/chess/images/${piece.color}-${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.png`;
+                pieceImg.src = `${piece.color}-${piece.type.charAt(0).toUpperCase() + piece.type.slice(1)}.png`;
                 pieceImg.alt = `${piece.color} ${piece.type}`;
                 pieceImg.setAttribute('draggable', false);
 
@@ -833,19 +758,6 @@ function checkGameStatus() {
     }
     if (kingInCheck && !hasLegalMoves) {
         showMessage(`Checkmate! ${opponentPlayerColor.toUpperCase()} wins!`);
-        // Badge awarding logic: Check if the player (not engine) won
-        const playerColor = isEngineWhite ? 'black' : 'white';
-        if (opponentPlayerColor === playerColor) {
-            let badgeName, badgeDisplayName;
-            if (playerColor === 'white') {
-                badgeName = 'beatstockfishplayingwhite';
-                badgeDisplayName = 'Beat Stockfish Playing White';
-            } else {
-                badgeName = 'beatstockfishplayingblack';
-                badgeDisplayName = 'Beat Stockfish Playing Black';
-            }
-            awardBadge(badgeName, badgeDisplayName);
-        }
     } else if (!kingInCheck && !hasLegalMoves) {
         showMessage("Stalemate! It's a draw.");
     } else if (kingInCheck) {
@@ -905,7 +817,7 @@ function showPromotionUI(pawnColor) {
         choiceDiv.dataset.pieceType = pieceType;
         choiceDiv.addEventListener('click', () => selectPromotionPiece(pieceType, pawnColor));
         const pieceImg = document.createElement('img');
-        pieceImg.src = `./images/${pawnColor}-${pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}.png`;
+        pieceImg.src = `${pawnColor}-${pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}.png`;
         pieceImg.alt = `${pawnColor} ${pieceType}`;
         choiceDiv.appendChild(pieceImg);
         promotionChoices.appendChild(choiceDiv);
