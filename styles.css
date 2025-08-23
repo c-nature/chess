@@ -7,7 +7,7 @@ body {
     min-height: 100vh;
     margin: 0;
     background-color: #1aa947;
-    font-family: 'Roboto', sans-serif; /* Changed to a similar, more readable font for body text */
+    font-family: 'Roboto', sans-serif;
     align-items: center;
     justify-content: center;
     flex-direction: column;
@@ -107,7 +107,6 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    justify-content: center;
     position: relative;
     box-sizing: border-box;
     min-width: 0;
@@ -323,6 +322,35 @@ body {
 
 #line1, #line2, #line3 {
     min-width: 400px;
+}
+
+/* --- Styles for the standalone badge notification pop-up --- */
+#badge-notification {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s, transform 0.5s;
+    z-index: 2000;
+    text-align: center;
+    font-family: 'Bebas Neue', cursive;
+}
+#badge-notification.show {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+#badge-notification h2, #badge-notification p {
+    color: white;
+    text-shadow: 
+        -2px -2px 0 #000, 2px -2px 0 #000, 
+        -2px 2px 0 #000, 2px 2px 0 #000, 
+        4px 4px 8px rgba(0,0,0,0.6);
+}
+.hidden {
+    display: none !important;
 }
 
 /* Media Queries */
